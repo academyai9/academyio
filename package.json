@@ -1,0 +1,30 @@
+{
+  "name": "academyio-webinar-platform",
+  "version": "1.0.0",
+  "description": "Production-ready Webinar & Seminar E-Commerce Platform built with Medusa.js v2, Next.js 15, and PostgreSQL",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:storefront": "cd storefront && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:storefront": "cd storefront && npm run build",
+    "build": "npm run build:backend && npm run build:storefront",
+    "start:backend": "cd backend && npm run start",
+    "start:storefront": "cd storefront && npm run start",
+    "migrate": "cd backend && node ./node_modules/@medusajs/cli/cli.js db:migrate",
+    "seed": "cd backend && node ./node_modules/@medusajs/cli/cli.js exec ./src/scripts/seed.ts && node ./node_modules/@medusajs/cli/cli.js exec ./src/scripts/seed-us-region.ts && node ./node_modules/@medusajs/cli/cli.js exec ./src/scripts/seed-webinars.ts",
+    "test": "cd backend && node ./node_modules/.bin/ts-node ./src/scripts/test-webinar-suite.ts"
+  },
+  "keywords": [
+    "medusa",
+    "ecommerce",
+    "webinars",
+    "seminars",
+    "cpe",
+    "nextjs",
+    "typescript",
+    "postgresql"
+  ],
+  "author": "AcademyIO Platform Team",
+  "license": "MIT"
+}
