@@ -34,9 +34,21 @@ sdk.client.fetch = async <T>(
     ...localeHeader,
     ...headers,
   }
-  init = {
-    ...init,
-    headers: newHeaders,
+
+  // Set timeout to prevent undici HeadersTimeoutError / hanging on Vercel build
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+  try {
+    const response = await originalFetch(input, {
+      ...init,
+      headers: newHeaders,
+      signal: init?.signal || controller.signal,
+    })
+    clearTimeout(timeoutId)
+    return response
+  } catch (err) {
+    clearTimeout(timeoutId)
+    throw err
   }
-  return originalFetch(input, init)
 }
