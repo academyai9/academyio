@@ -4,14 +4,17 @@ import Medusa, { FetchArgs, FetchInput } from "@medusajs/js-sdk"
 // Defaults to standard port for Medusa server
 let MEDUSA_BACKEND_URL = "http://localhost:9000"
 
-if (process.env.MEDUSA_BACKEND_URL) {
-  MEDUSA_BACKEND_URL = process.env.MEDUSA_BACKEND_URL
+if (process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL) {
+  MEDUSA_BACKEND_URL =
+    process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL!
 }
 
 export const sdk = new Medusa({
   baseUrl: MEDUSA_BACKEND_URL,
   debug: process.env.NODE_ENV === "development",
-  publishableKey: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY,
+  publishableKey:
+    process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
+    "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978",
 })
 
 const originalFetch = sdk.client.fetch.bind(sdk.client)
