@@ -1,11 +1,12 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { getCollectionByHandle, listCollections } from "@lib/data/collections"
-import { listRegions } from "@lib/data/regions"
-import { StoreCollection, StoreRegion } from "@medusajs/types"
+import { getCollectionByHandle } from "@lib/data/collections"
+import { StoreCollection } from "@medusajs/types"
 import CollectionTemplate from "@modules/collections/templates"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
+
+export const dynamic = "force-dynamic"
 
 type Props = {
   params: Promise<{ handle: string; countryCode: string }>
@@ -17,57 +18,28 @@ type Props = {
 
 export const PRODUCT_LIMIT = 12
 
-export async function generateStaticParams() {
-  try {
-    const { collections } = await listCollections({
-      fields: "*products",
-    })
-
-    if (!collections || !collections.length) {
-      return []
-    }
-
-    const countryCodes = await listRegions().then(
-      (regions: StoreRegion[]) =>
-        regions
-          ?.map((r) => r.countries?.map((c) => c.iso_2))
-          .flat()
-          .filter(Boolean) as string[]
-    )
-
-    const collectionHandles = collections.map(
-      (collection: StoreCollection) => collection.handle
-    )
-
-    const staticParams = countryCodes
-      ?.map((countryCode: string) =>
-        collectionHandles.map((handle: string | undefined) => ({
-          countryCode,
-          handle,
-        }))
-      )
-      .flat()
-
-    return staticParams || []
-  } catch (error) {
-    return []
-  }
-}
-
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
-  const collection = await getCollectionByHandle(params.handle)
+  try {
+    const collection = await getCollectionByHandle(params.handle)
 
-  if (!collection) {
-    notFound()
+    if (!collection) {
+      return {
+        title: `${params.handle} | AcademyIO`,
+        description: `${params.handle} collection on AcademyIO`,
+      }
+    }
+
+    return {
+      title: `${collection.title} | AcademyIO`,
+      description: `${collection.title} collection`,
+    }
+  } catch (error) {
+    return {
+      title: `${params.handle} | AcademyIO`,
+      description: `${params.handle} collection on AcademyIO`,
+    }
   }
-
-  const metadata = {
-    title: `${collection.title} | Medusa Store`,
-    description: `${collection.title} collection`,
-  } as Metadata
-
-  return metadata
 }
 
 export default async function CollectionPage(props: Props) {
