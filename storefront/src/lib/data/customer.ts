@@ -16,6 +16,7 @@ import {
 } from "./cookies"
 import { Pool } from "pg"
 import { verifyTurnstileToken } from "@lib/util/verify-turnstile"
+import { fetchWithTimeout } from "@lib/util/fetch"
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
@@ -663,7 +664,7 @@ export async function requestPasswordReset(email: string) {
       process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
       "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
 
-    const res = await fetch(`${backendUrl}/store/password-reset/request`, {
+    const res = await fetchWithTimeout(`${backendUrl}/store/password-reset/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -711,7 +712,7 @@ export async function confirmPasswordReset(payload: { email?: string; token: str
       process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
       "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
 
-    const res = await fetch(`${backendUrl}/store/password-reset/confirm`, {
+    const res = await fetchWithTimeout(`${backendUrl}/store/password-reset/confirm`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

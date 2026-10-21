@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "@lib/util/fetch"
+
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
 
@@ -134,7 +136,7 @@ export async function getWebinars(params: {
     if (params.limit) query.append("limit", params.limit.toString())
     if (params.offset) query.append("offset", params.offset.toString())
 
-    const res = await fetch(`${BACKEND_URL}/store/webinars?${query.toString()}`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/webinars?${query.toString()}`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
@@ -155,7 +157,7 @@ export async function getWebinars(params: {
 
 export async function getWebinarBySlug(slug: string): Promise<WebinarItem | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/webinars/${slug}`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/webinars/${slug}`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
@@ -176,7 +178,7 @@ export async function getWebinarBySlug(slug: string): Promise<WebinarItem | null
 
 export async function getCustomerEntitlements(token: string) {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/customer/entitlements`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/entitlements`, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "x-publishable-api-key": PUBLISHABLE_KEY,
@@ -197,7 +199,7 @@ export async function getCustomerEntitlements(token: string) {
 
 export async function getCustomerWebinarAccess(token: string, webinarId: string) {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/customer/webinars/${webinarId}/access`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/webinars/${webinarId}/access`, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "x-publishable-api-key": PUBLISHABLE_KEY,
@@ -225,7 +227,7 @@ export async function getCustomerCertificates(token?: string, customerId?: strin
       headers["Authorization"] = `Bearer ${token}`
     }
     const query = customerId ? `?customer_id=${encodeURIComponent(customerId)}` : ""
-    const res = await fetch(`${BACKEND_URL}/store/customer/certificates${query}`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/certificates${query}`, {
       headers,
       cache: "no-store",
     })
@@ -243,7 +245,7 @@ export async function getCustomerCertificates(token?: string, customerId?: strin
 
 export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/subscriptions`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/subscriptions`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
@@ -265,7 +267,7 @@ export async function getCustomerSubscription(token: string): Promise<{
   plan: SubscriptionPlan | null
 } | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/customer/subscriptions`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/subscriptions`, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "x-publishable-api-key": PUBLISHABLE_KEY,
@@ -305,7 +307,7 @@ export async function subscribeToPlan(
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    const res = await fetch(`${BACKEND_URL}/store/customer/subscriptions`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/subscriptions`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -331,7 +333,7 @@ export async function subscribeToPlan(
 
 export async function cancelCustomerSubscription(token: string, immediate = false) {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/customer/subscriptions/cancel`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/subscriptions/cancel`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
@@ -367,7 +369,7 @@ export async function getWebinarSubscriptionStatus(
     if (customerId) query.append("customer_id", customerId)
     const qStr = query.toString() ? `?${query.toString()}` : ""
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${BACKEND_URL}/store/customer/webinars/${webinarId}/subscription-register${qStr}`,
       {
         headers,
@@ -398,7 +400,7 @@ export async function registerWebinarWithSubscription(
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${BACKEND_URL}/store/customer/webinars/${webinarId}/subscription-register`,
       {
         method: "POST",
@@ -522,7 +524,7 @@ export async function getStoreSpeakers(params: { featured?: boolean } = {}): Pro
     if (params.featured) query.append("featured", "true")
     const qStr = query.toString() ? `?${query.toString()}` : ""
 
-    const res = await fetch(`${BACKEND_URL}/store/speakers${qStr}`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/speakers${qStr}`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
@@ -550,7 +552,7 @@ export async function getStoreSpeakers(params: { featured?: boolean } = {}): Pro
 
 export async function getSpeakerById(id: string): Promise<SpeakerItem | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/speakers/${id}`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/speakers/${id}`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },

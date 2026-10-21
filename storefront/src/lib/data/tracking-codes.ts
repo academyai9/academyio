@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "@lib/util/fetch"
+
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
 const PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
@@ -18,7 +20,7 @@ export interface StoreTrackingCode {
 
 export async function getStoreTrackingCodes(): Promise<StoreTrackingCode[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/tracking-codes`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/tracking-codes`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },

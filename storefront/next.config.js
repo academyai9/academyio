@@ -61,6 +61,20 @@ const nextConfig = {
         : []),
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:countryCode/categories",
+        destination: "/:countryCode/courses-by-topics",
+        permanent: true,
+      },
+      {
+        source: "/:countryCode/categories/:category*",
+        destination: "/:countryCode/courses-by-topics/:category*",
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

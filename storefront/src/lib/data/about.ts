@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "@lib/util/fetch"
+
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
 
@@ -252,7 +254,7 @@ export const OFFICIAL_ABOUT_DATA: AboutPageData = {
 
 export async function getAboutData(): Promise<AboutPageData> {
   try {
-    const res = await fetch(`${BACKEND_URL}/store/pages/about`, {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/pages/about`, {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },

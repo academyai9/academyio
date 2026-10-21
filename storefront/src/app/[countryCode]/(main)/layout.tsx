@@ -6,6 +6,41 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { getStoreTrackingCodes } from "@lib/data/tracking-codes"
 import FrontendTrackingLoader from "@/components/analytics/FrontendTrackingLoader"
 
+// Global fetch timeout patch to protect Next.js page data collection against 300s undici hangs
+if (
+  typeof globalThis !== "undefined" &&
+  typeof globalThis.fetch === "function" &&
+  !(globalThis as any).__fetch_timeout_guarded
+) {
+  const _origFetch = globalThis.fetch
+  ;(globalThis as any).__fetch_timeout_guarded = true
+
+  globalThis.fetch = async function (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) {
+    if (init?.signal) {
+      return _origFetch(input, init)
+    }
+
+    const controller = new AbortController()
+    const timeoutMs = 4000
+    const timeoutId = setTimeout(
+      () => controller.abort(new Error("Global fetch timeout (4s)")),
+      timeoutMs
+    )
+
+    try {
+      return await _origFetch(input, {
+        ...init,
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
