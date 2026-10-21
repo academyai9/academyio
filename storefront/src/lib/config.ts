@@ -9,6 +9,48 @@ if (process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
     process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL!
 }
 
+// Global fetch timeout patch to prevent undici HeadersTimeoutError on Vercel build
+if (
+  typeof globalThis !== "undefined" &&
+  typeof globalThis.fetch === "function" &&
+  !(globalThis as any).__fetch_timeout_patched
+) {
+  const _nativeFetch = globalThis.fetch
+  ;(globalThis as any).__fetch_timeout_patched = true
+
+  globalThis.fetch = async function (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) {
+    if (init?.signal) {
+      return _nativeFetch(input, init)
+    }
+
+    const controller = new AbortController()
+    const timeoutMs = 8000
+    const timeoutId = setTimeout(
+      () => controller.abort(new Error("Global fetch timeout (8s)")),
+      timeoutMs
+    )
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("Global fetch promise timeout (8.5s)")),
+        timeoutMs + 500
+      )
+    })
+
+    try {
+      return await Promise.race([
+        _nativeFetch(input, { ...init, signal: controller.signal }),
+        timeoutPromise,
+      ])
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 export const sdk = new Medusa({
   baseUrl: MEDUSA_BACKEND_URL,
   debug: process.env.NODE_ENV === "development",
@@ -37,18 +79,24 @@ sdk.client.fetch = async <T>(
 
   // Set timeout to prevent undici HeadersTimeoutError / hanging on Vercel build
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 8000)
+  const timeoutMs = 8000
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(
+      () => reject(new Error("Medusa SDK fetch timeout (8.5s)")),
+      timeoutMs + 500
+    )
+  })
 
   try {
-    const response = await originalFetch(input, {
+    const fetchPromise = originalFetch(input, {
       ...init,
       headers: newHeaders,
       signal: init?.signal || controller.signal,
     })
+    return await Promise.race([fetchPromise, timeoutPromise])
+  } finally {
     clearTimeout(timeoutId)
-    return response
-  } catch (err) {
-    clearTimeout(timeoutId)
-    throw err
   }
 }

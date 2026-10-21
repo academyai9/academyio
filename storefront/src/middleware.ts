@@ -24,6 +24,8 @@ async function getRegionMap(cacheId: string) {
   ) {
     if (BACKEND_URL && PUBLISHABLE_API_KEY) {
       try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 4000)
         const response = await fetch(`${BACKEND_URL}/store/regions`, {
           headers: {
             "x-publishable-api-key": PUBLISHABLE_API_KEY,
@@ -33,7 +35,8 @@ async function getRegionMap(cacheId: string) {
             tags: [`regions-${cacheId}`],
           },
           cache: "force-cache",
-        })
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout))
 
         if (response.ok) {
           const json = await response.json()
