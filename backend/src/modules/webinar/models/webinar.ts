@@ -1,6 +1,7 @@
 import { model } from "@medusajs/framework/utils"
 import { WebinarResource } from "./webinar-resource"
 import { CustomerEntitlement } from "./customer-entitlement"
+import { Speaker } from "./speaker"
 
 export const Webinar = model.define("webinar", {
   id: model.id({ prefix: "web_" }).primaryKey(),
@@ -18,7 +19,7 @@ export const Webinar = model.define("webinar", {
   end_time: model.text(),
   timezone: model.text().default("America/New_York"),
   duration_minutes: model.number().default(60),
-  category: model.text().default("Tax & Accounting"),
+  category: model.text().default("Federal Taxation"),
   tags: model.json().nullable(),
   learning_objectives: model.json().nullable(),
   target_audience: model.text().nullable(),
@@ -32,6 +33,10 @@ export const Webinar = model.define("webinar", {
   is_seminar: model.boolean().default(false),
   refund_policy: model.text().nullable(),
   
+  // SEO Metadata
+  seo_title: model.text().nullable(),
+  seo_description: model.text().nullable(),
+  
   // Secure Content Delivery Attributes (Administrator Controlled)
   live_stream_url: model.text().nullable(),
   live_instructions: model.text().nullable(),
@@ -40,6 +45,7 @@ export const Webinar = model.define("webinar", {
   recording_url: model.text().nullable(),
   recording_instructions: model.text().nullable(),
   recording_expires_at: model.dateTime().nullable(),
+  recording_published: model.boolean().default(false),
   
   transcript_content: model.text().nullable(),
   transcript_file_url: model.text().nullable(),
@@ -49,6 +55,9 @@ export const Webinar = model.define("webinar", {
   
   metadata: model.json().nullable(),
   
+  speaker: model.belongsTo(() => Speaker, {
+    mappedBy: "webinars",
+  }).nullable(),
   resources: model.hasMany(() => WebinarResource, {
     mappedBy: "webinar",
   }),

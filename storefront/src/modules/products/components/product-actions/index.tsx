@@ -120,19 +120,25 @@ export default function ProductActions({
 
   const inView = useIntersection(actionsRef, "0px")
 
-  // add the selected variant to the cart
+  // add the selected variant to the cart and redirect directly to checkout
   const handleAddToCart = async () => {
     if (!selectedVariant?.id) return null
 
     setIsAdding(true)
 
-    await addToCart({
-      variantId: selectedVariant.id,
-      quantity: 1,
-      countryCode,
-    })
-
-    setIsAdding(false)
+    try {
+      await addToCart({
+        variantId: selectedVariant.id,
+        quantity: 1,
+        countryCode,
+      })
+      router.push(`/${countryCode}/checkout`)
+    } catch (e) {
+      console.error("Cart error:", e)
+      router.push(`/${countryCode}/checkout`)
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   return (
@@ -180,7 +186,7 @@ export default function ProductActions({
             ? "Select variant"
             : !inStock || !isValidVariant
             ? "Out of stock"
-            : "Add to cart"}
+            : "Enroll Now & Checkout"}
         </Button>
         <MobileActions
           product={product}

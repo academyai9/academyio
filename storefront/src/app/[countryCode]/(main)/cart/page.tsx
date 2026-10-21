@@ -1,21 +1,25 @@
+import { redirect } from "next/navigation"
 import { retrieveCart } from "@lib/data/cart"
-import { retrieveCustomer } from "@lib/data/customer"
-import CartTemplate from "@modules/cart/templates"
 import { Metadata } from "next"
-import { notFound } from "next/navigation"
 
 export const metadata: Metadata = {
-  title: "Cart",
-  description: "View your cart",
+  title: "Checkout | AcademyIO",
+  description: "Complete your webinar enrollment.",
 }
 
-export default async function Cart() {
-  const cart = await retrieveCart().catch((error) => {
-    console.error(error)
-    return notFound()
-  })
+type CartProps = {
+  params: Promise<{ countryCode: string }>
+}
 
-  const customer = await retrieveCustomer()
+export default async function Cart(props: CartProps) {
+  const { countryCode } = await props.params
+  const cart = await retrieveCart().catch(() => null)
 
-  return <CartTemplate cart={cart} customer={customer} />
+  // If cart is empty, redirect to upcoming webinar catalog
+  if (!cart || !cart.items || cart.items.length === 0) {
+    redirect(`/${countryCode}/webinars/upcoming`)
+  }
+
+  // Direct checkout: redirect straight to main checkout page
+  redirect(`/${countryCode}/checkout`)
 }

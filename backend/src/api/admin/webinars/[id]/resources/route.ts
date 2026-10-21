@@ -2,6 +2,22 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import WebinarModuleService from "../../../../../modules/webinar/service"
 import { WEBINAR_MODULE } from "../../../../../modules/webinar"
 
+export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
+  const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
+  const { id } = req.params
+
+  const [webinar] = await webinarService.listWebinars(
+    { id },
+    { relations: ["resources"] }
+  )
+
+  if (!webinar) {
+    return res.status(404).json({ message: "Webinar not found" })
+  }
+
+  res.json({ resources: webinar.resources || [] })
+}
+
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
   const { id } = req.params

@@ -6,7 +6,7 @@ import WebinarFilters from "@/components/webinars/WebinarFilters"
 
 export default async function SearchResultsPage(props: {
   params: Promise<{ countryCode: string }>
-  searchParams: Promise<{ q?: string; search?: string; category?: string; type?: "upcoming" | "ondemand" | "seminar" | "all" }>
+  searchParams: Promise<{ q?: string; search?: string; category?: string; type?: "upcoming" | "ondemand" | "all" }>
 }) {
   const { countryCode } = await props.params
   const searchParams = await props.searchParams
@@ -24,7 +24,7 @@ export default async function SearchResultsPage(props: {
       <div>
         <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Search Catalog</span>
         <h1 className="text-3xl font-extrabold text-gray-900 mt-1">
-          {query ? `Search Results for "${query}"` : "Search All Webinars & Seminars"}
+          {query ? `Search Results for "${query}"` : "Search All Webinars & Courses"}
         </h1>
         <p className="text-sm text-gray-600 mt-2">
           Discover programs by IRS form number, tax code section, speaker name, or topic.

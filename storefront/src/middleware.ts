@@ -13,50 +13,52 @@ const regionMapCache = {
 async function getRegionMap(cacheId: string) {
   const { regionMap, regionMapUpdated } = regionMapCache
 
-  if (!BACKEND_URL) {
-    throw new Error(
-      "Middleware.ts: Error fetching regions. Did you set up regions in your Medusa Admin and define a MEDUSA_BACKEND_URL environment variable? Note that the variable is no longer named NEXT_PUBLIC_MEDUSA_BACKEND_URL."
-    )
-  }
-
   if (
     !regionMap.keys().next().value ||
     regionMapUpdated < Date.now() - 3600 * 1000
   ) {
-    // Fetch regions from Medusa. We can't use the JS client here because middleware is running on Edge and the client needs a Node environment.
-    const { regions } = await fetch(`${BACKEND_URL}/store/regions`, {
-      headers: {
-        "x-publishable-api-key": PUBLISHABLE_API_KEY!,
-      },
-      next: {
-        revalidate: 3600,
-        tags: [`regions-${cacheId}`],
-      },
-      cache: "force-cache",
-    }).then(async (response) => {
-      const json = await response.json()
+    if (BACKEND_URL && PUBLISHABLE_API_KEY) {
+      try {
+        const response = await fetch(`${BACKEND_URL}/store/regions`, {
+          headers: {
+            "x-publishable-api-key": PUBLISHABLE_API_KEY,
+          },
+          next: {
+            revalidate: 3600,
+            tags: [`regions-${cacheId}`],
+          },
+          cache: "force-cache",
+        })
 
-      if (!response.ok) {
-        throw new Error(json.message)
+        if (response.ok) {
+          const json = await response.json()
+          if (json.regions?.length) {
+            json.regions.forEach((region: HttpTypes.StoreRegion) => {
+              region.countries?.forEach((c) => {
+                regionMapCache.regionMap.set(c.iso_2 ?? "", region)
+              })
+            })
+            regionMapCache.regionMapUpdated = Date.now()
+            return regionMapCache.regionMap
+          }
+        }
+      } catch (err) {
+        // Log gently and continue with fallback
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Middleware: Unable to reach backend for regions, using fallback.")
+        }
       }
-
-      return json
-    })
-
-    if (!regions?.length) {
-      throw new Error(
-        "No regions found. Please set up regions in your Medusa Admin."
-      )
     }
 
-    // Create a map of country codes to regions.
-    regions.forEach((region: HttpTypes.StoreRegion) => {
-      region.countries?.forEach((c) => {
-        regionMapCache.regionMap.set(c.iso_2 ?? "", region)
-      })
-    })
-
-    regionMapCache.regionMapUpdated = Date.now()
+    // Fallback default region if backend is unreachable or has no regions configured yet
+    if (!regionMapCache.regionMap.has(DEFAULT_REGION)) {
+      regionMapCache.regionMap.set(DEFAULT_REGION, {
+        id: "reg_default",
+        name: "United States",
+        currency_code: "usd",
+        countries: [{ id: "c_us", iso_2: DEFAULT_REGION, display_name: "United States" }],
+      } as any)
+    }
   }
 
   return regionMapCache.regionMap
@@ -119,18 +121,29 @@ export async function middleware(request: NextRequest) {
   const urlHasCountryCode =
     countryCode && request.nextUrl.pathname.split("/")[1].includes(countryCode)
 
-  // if one of the country codes is in the url and the cache id is set, return next
-  if (urlHasCountryCode && cacheIdCookie) {
-    return NextResponse.next()
+  // Redirect /cart directly to /checkout
+  if (
+    request.nextUrl.pathname.endsWith("/cart") ||
+    request.nextUrl.pathname.includes("/cart/")
+  ) {
+    const targetCountry = countryCode || DEFAULT_REGION
+    const checkoutUrl = new URL(`/${targetCountry}/checkout`, request.url)
+    const redirectRes = NextResponse.redirect(checkoutUrl, 307)
+    if (!cacheIdCookie) {
+      redirectRes.cookies.set("_medusa_cache_id", cacheId, { maxAge: 60 * 60 * 24 })
+    }
+    return redirectRes
   }
 
-  // if one of the country codes is in the url and the cache id is not set, set the cache id and redirect
-  if (urlHasCountryCode && !cacheIdCookie) {
-    response.cookies.set("_medusa_cache_id", cacheId, {
-      maxAge: 60 * 60 * 24,
-    })
-
-    return response
+  // if one of the country codes is in the url, return next (setting cookie if needed without extra redirect)
+  if (urlHasCountryCode) {
+    const res = NextResponse.next()
+    if (!cacheIdCookie) {
+      res.cookies.set("_medusa_cache_id", cacheId, {
+        maxAge: 60 * 60 * 24,
+      })
+    }
+    return res
   }
 
   // check if the url is a static asset

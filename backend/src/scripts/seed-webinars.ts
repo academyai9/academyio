@@ -381,7 +381,7 @@ export default async function seedWebinars({ container }: ExecArgs) {
 
     let webinar = existing
     if (!webinar) {
-      webinar = await webinarService.createWebinars({
+      webinar = await (webinarService.createWebinars as any)({
         title: item.title,
         slug: item.slug,
         short_description: item.short_description,
@@ -435,7 +435,7 @@ export default async function seedWebinars({ container }: ExecArgs) {
 
       // Create linked Medusa Product & Variants
       try {
-        const product = await productModule.createProducts({
+        const product = await (productModule.createProducts as any)({
           title: item.title,
           handle: item.slug,
           description: item.short_description,

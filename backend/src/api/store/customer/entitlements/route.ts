@@ -76,6 +76,23 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     } else if (ent.access_type === "pdf") {
       item.access.has_pdf = true
     }
+
+    // Attach authorized delivery resources based on active access
+    if (item.access.has_live && web.live_link_published) {
+      item.webinar.live_stream_url = web.live_stream_url
+      item.webinar.live_instructions = web.live_instructions
+    }
+    if (item.access.has_recording) {
+      item.webinar.recording_url = web.recording_url
+      item.webinar.recording_instructions = web.recording_instructions
+    }
+    if (item.access.has_transcript) {
+      item.webinar.transcript_file_url = web.transcript_file_url
+      item.webinar.transcript_content = web.transcript_content
+    }
+    if (item.access.has_pdf) {
+      item.webinar.resources = (web.resources || []).filter((r: any) => r.is_published)
+    }
   }
 
   const purchasedWebinars = Array.from(webinarMap.values())

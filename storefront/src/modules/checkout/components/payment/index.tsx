@@ -29,14 +29,30 @@ const Payment = ({
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    activeSession?.provider_id ?? ""
+    activeSession?.provider_id || availablePaymentMethods?.[0]?.id || ""
   )
 
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "payment"
+  const isOpen =
+    searchParams.get("step") === "payment" ||
+    (!searchParams.get("step") &&
+      Boolean(cart?.shipping_address) &&
+      (cart?.shipping_methods?.length ?? 0) > 0 &&
+      !activeSession)
+
+  useEffect(() => {
+    if (!selectedPaymentMethod && availablePaymentMethods?.length > 0) {
+      const defaultMethod =
+        availablePaymentMethods.find((m: any) => m.id === "pp_system_default") ||
+        availablePaymentMethods[0]
+      if (defaultMethod) {
+        setSelectedPaymentMethod(defaultMethod.id)
+      }
+    }
+  }, [availablePaymentMethods, selectedPaymentMethod])
 
   const setPaymentMethod = async (method: string) => {
     setError(null)
@@ -52,7 +68,7 @@ const Payment = ({
     cart?.gift_cards && cart?.gift_cards?.length > 0 && cart?.total === 0
 
   const paymentReady =
-    (activeSession && cart?.shipping_methods.length !== 0) || paidByGiftcard
+    (activeSession && (cart?.shipping_methods?.length ?? 0) !== 0) || paidByGiftcard
 
   const createQueryString = useCallback(
     (name: string, value: string) => {
@@ -73,15 +89,21 @@ const Payment = ({
   const handleSubmit = async () => {
     setIsLoading(true)
     try {
+      const methodToUse =
+        selectedPaymentMethod || availablePaymentMethods?.[0]?.id
+      if (!methodToUse) {
+        throw new Error("Please select a payment method")
+      }
+
       const shouldInputCard =
-        isStripeLike(selectedPaymentMethod) && !activeSession
+        isStripeLike(methodToUse) && !activeSession
 
       const checkActiveSession =
-        activeSession?.provider_id === selectedPaymentMethod
+        activeSession?.provider_id === methodToUse
 
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
-          provider_id: selectedPaymentMethod,
+          provider_id: methodToUse,
         })
       }
 

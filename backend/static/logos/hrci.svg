@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100" fill="none" role="img" aria-label="HR Certification Institute (HRCI) Approved Provider Logo">
+  <defs>
+    <linearGradient id="hrciBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="hrciGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect width="320" height="100" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  
+  <!-- HRCI Seal Emblem -->
+  <g transform="translate(14, 14)">
+    <circle cx="36" cy="36" r="34" fill="url(#hrciBlue)"/>
+    <circle cx="36" cy="36" r="30" fill="none" stroke="url(#hrciGold)" stroke-width="2"/>
+    
+    <!-- Stylized Laurel / Ribbons -->
+    <path d="M26 44c0-10 6-18 10-22 4 4 10 12 10 22-5-2-15-2-20 0z" fill="url(#hrciGold)"/>
+    <circle cx="36" cy="22" r="3" fill="#FFFFFF"/>
+    
+    <text x="36" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="7.5" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">SEAL</text>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(94, 20)">
+    <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#1E3A8A" letter-spacing="1.5">HRCI</text>
+    <rect x="74" y="8" width="1" height="18" fill="#CBD5E1"/>
+    <text x="82" y="16" font-family="system-ui, -apple-system, sans-serif" font-size="8.5" font-weight="800" fill="#1E293B" letter-spacing="0.4">HR CERTIFICATION INSTITUTE</text>
+    <text x="82" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="800" fill="#D97706" letter-spacing="0.8">APPROVED PROVIDER</text>
+    
+    <!-- Subtitle Banner -->
+    <rect x="0" y="38" width="210" height="20" rx="4" fill="#FEF3C7" stroke="#FDE68A" stroke-width="0.8"/>
+    <text x="8" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="8.5" font-weight="700" fill="#92400E" letter-spacing="0.2">RECERTIFICATION CREDIT PRE-APPROVED</text>
+  </g>
+</svg>

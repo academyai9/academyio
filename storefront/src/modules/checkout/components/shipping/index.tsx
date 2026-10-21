@@ -68,17 +68,41 @@ const Shipping: React.FC<ShippingProps> = ({
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "delivery"
+  const isOpen =
+    searchParams.get("step") === "delivery" ||
+    (!searchParams.get("step") &&
+      Boolean(cart?.shipping_address) &&
+      (cart?.shipping_methods?.length ?? 0) === 0)
 
   const _shippingMethods = availableShippingMethods?.filter(
-    (sm) => sm.service_zone?.fulfillment_set?.type !== "pickup"
+    (sm: any) => sm.service_zone?.fulfillment_set?.type !== "pickup"
   )
 
   const _pickupMethods = availableShippingMethods?.filter(
-    (sm) => sm.service_zone?.fulfillment_set?.type === "pickup"
+    (sm: any) => sm.service_zone?.fulfillment_set?.type === "pickup"
   )
 
   const hasPickupOptions = !!_pickupMethods?.length
+
+  useEffect(() => {
+    // If no shipping method selected yet on cart, auto-select the digital option
+    if (
+      _shippingMethods?.length &&
+      !shippingMethodId &&
+      (!cart.shipping_methods || cart.shipping_methods.length === 0)
+    ) {
+      const digitalOpt =
+        _shippingMethods.find(
+          (o) =>
+            o.name?.toLowerCase().includes("digital") ||
+            o.name?.toLowerCase().includes("instant") ||
+            o.amount === 0
+        ) || _shippingMethods[0]
+      if (digitalOpt) {
+        handleSetShippingMethod(digitalOpt.id, "shipping")
+      }
+    }
+  }, [availableShippingMethods, cart.shipping_methods, shippingMethodId])
 
   useEffect(() => {
     setIsLoadingPrices(true)
@@ -342,7 +366,7 @@ const Shipping: React.FC<ShippingProps> = ({
                               </span>
                               <span className="text-base-regular text-ui-fg-muted">
                                 {formatAddress(
-                                  option.service_zone?.fulfillment_set?.location
+                                  (option as any).service_zone?.fulfillment_set?.location
                                     ?.address
                                 )}
                               </span>

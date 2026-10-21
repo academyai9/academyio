@@ -36,7 +36,7 @@ Engineered specifically for selling, licensing, and delivering online educationa
 15. **My Live Webinars** (`/[countryCode]/dashboard/webinars`): Confirmed live session registrations and secure meeting launcher.
 16. **My Video Recordings** (`/[countryCode]/dashboard/recordings`): On-demand video player with playback controls.
 17. **My Transcripts** (`/[countryCode]/dashboard/transcripts`): Verbatim written reader and PDF download.
-18. **My PDF Downloads** (`/[countryCode]/dashboard/downloads`): Downloadable instructor slide decks, worksheets, and audit checklists.
+18. **Conference Material** (`/[countryCode]/dashboard/downloads`): Downloadable instructor slide decks, worksheets, and audit checklists.
 19. **My Orders** (`/[countryCode]/dashboard/orders`): Transaction history, payment verification, and receipts.
 20. **My Profile** (`/[countryCode]/dashboard/profile`): Contact information, firm name, and credentials.
 21. **About Us** (`/[countryCode]/about`): Educational mission, faculty vetting standards, and NASBA alignment.

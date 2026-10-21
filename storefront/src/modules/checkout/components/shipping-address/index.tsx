@@ -183,9 +183,14 @@ const ShippingAddress = ({
         />
       </div>
       <div className="my-8">
+        <input
+          type="hidden"
+          name="same_as_billing"
+          value={checked ? "on" : "off"}
+        />
         <Checkbox
           label="Billing address same as shipping address"
-          name="same_as_billing"
+          name="same_as_billing_checkbox"
           checked={checked}
           onChange={onChange}
           data-testid="billing-address-checkbox"

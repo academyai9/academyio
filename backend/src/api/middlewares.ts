@@ -1,11 +1,55 @@
 import { defineMiddlewares, authenticate } from "@medusajs/framework/http"
+import { customerRegistrationCaptchaMiddleware } from "./middlewares/captcha"
 
 export default defineMiddlewares({
   routes: [
     {
+      matcher: "/auth/customer/emailpass/register",
+      method: "POST",
+      middlewares: [
+        customerRegistrationCaptchaMiddleware,
+      ],
+    },
+    {
       matcher: "/store/customer/*",
       middlewares: [
-        authenticate("customer", ["session", "bearer"]),
+        authenticate("customer", ["session", "bearer"], { allowUnauthenticated: true }),
+      ],
+    },
+    {
+      matcher: "/admin/overview*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/categories*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/testimonials*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/organizations*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/quizzes*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/certificates*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
       ],
     },
     {
@@ -15,7 +59,79 @@ export default defineMiddlewares({
       ],
     },
     {
+      matcher: "/admin/speakers*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/subscriptions*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/customer-subscriptions*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
       matcher: "/admin/entitlements*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/orders-dashboard*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/orders-management*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/order-monitoring*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/promotions*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/webinar-files*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/customers*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/customers-directory*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/contact-info*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/tracking-codes*",
       middlewares: [
         authenticate("user", ["session", "bearer", "api-key"]),
       ],

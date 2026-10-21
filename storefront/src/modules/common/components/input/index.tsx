@@ -4,15 +4,13 @@ import React, { useEffect, useImperativeHandle, useState } from "react"
 import Eye from "@modules/common/icons/eye"
 import EyeOff from "@modules/common/icons/eye-off"
 
-type InputProps = Omit<
-  Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
-  "placeholder"
-> & {
+type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
   label: string
   errors?: Record<string, unknown>
   touched?: Record<string, unknown>
   name: string
   topLabel?: string
+  placeholder?: string
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -42,7 +40,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             type={inputType}
             name={name}
-            placeholder=" "
+            placeholder={props.placeholder || " "}
             required={required}
             className="pt-4 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active border-ui-border-base hover:bg-ui-bg-field-hover"
             {...props}

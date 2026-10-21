@@ -1,37 +1,59 @@
 import React from "react"
 import Link from "next/link"
-import { Award, ShieldCheck, Mail, Phone, MapPin } from "lucide-react"
+import { Award, ShieldCheck, MapPin } from "lucide-react"
+import { getStoreSocialLinks } from "@lib/data/social-media"
+import { getContactInfo } from "@lib/data/contact"
+import SocialFollowBar from "./SocialFollowBar"
 
-export default function Footer({ countryCode = "us" }: { countryCode?: string }) {
+export default async function Footer({ countryCode = "us" }: { countryCode?: string }) {
+  const [socialData, contactInfo] = await Promise.all([
+    getStoreSocialLinks(),
+    getContactInfo(),
+  ])
+  const hasSocialBar = Boolean(
+    socialData.global_enabled &&
+    socialData.social_links &&
+    socialData.social_links.length > 0
+  )
+
   return (
     <footer className="bg-slate-900 text-gray-400 text-xs border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Brand Info */}
-          <div className="lg:col-span-2 space-y-4">
-            <Link href={`/${countryCode}`} className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
-                A
-              </div>
-              <span className="font-extrabold text-xl text-white tracking-tight">
-                Academy<span className="text-blue-500">IO</span>
-              </span>
+          <div className="lg:col-span-1 space-y-4">
+            <Link href={`/${countryCode}`} className="inline-block" aria-label="AcademyIO Homepage">
+              <img
+                src="/logos/academyio-logo-white.png"
+                alt="AcademyIO - Empowering Future Minds"
+                className="h-10 w-auto max-w-[220px] object-contain"
+              />
             </Link>
-            <p className="text-gray-400 leading-relaxed pr-6 text-xs">
+            <p className="text-gray-400 leading-relaxed text-xs">
               Premier online continuing education and professional webinar platform for CPAs, Tax Attorneys,
-              Controllers, and Financial Executives. Offering accredited live interactive broadcasts, on-demand
-              recordings, verbatim transcripts, and comprehensive study materials.
+              Controllers, and Financial Executives.
             </p>
-            <div className="flex items-center gap-4 text-gray-300 pt-2">
-              <span className="flex items-center gap-1.5 text-[11px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+            <div className="flex flex-col gap-2 text-gray-300 pt-1">
+              <span className="flex items-center gap-1.5 text-[11px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 w-fit">
                 <Award className="w-3.5 h-3.5 text-amber-400" />
-                NASBA Aligned CPE
+                Certifications & Reporting
               </span>
-              <span className="flex items-center gap-1.5 text-[11px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+              <span className="flex items-center gap-1.5 text-[11px] bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 w-fit">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Encrypted Content Delivery
+                Encrypted Delivery
               </span>
             </div>
+            {contactInfo?.is_active && (
+              <div className="pt-2 text-[11px] text-gray-400 space-y-1 border-t border-slate-800/80">
+                <div className="flex items-center gap-1.5 text-gray-300 font-semibold">
+                  <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
+                  <span>Headquarters:</span>
+                </div>
+                <p className="leading-relaxed pl-4 text-gray-400">
+                  {contactInfo.street_address}, {contactInfo.city}, {contactInfo.state} {contactInfo.postal_code}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Catalog & Formats */}
@@ -49,18 +71,23 @@ export default function Footer({ countryCode = "us" }: { countryCode?: string })
                 </Link>
               </li>
               <li>
-                <Link href={`/${countryCode}/webinars/on-demand`} className="hover:text-white transition-colors">
-                  On-Demand Catalog
+                <Link href={`/${countryCode}/webinars/self-study`} className="hover:text-white transition-colors">
+                  Self-Study Catalog
                 </Link>
               </li>
               <li>
-                <Link href={`/${countryCode}/seminars`} className="hover:text-white transition-colors">
-                  Masterclass Seminars
+                <Link href={`/${countryCode}/subscriptions`} className="hover:text-white transition-colors text-blue-400">
+                  Monthly Subscriptions
                 </Link>
               </li>
               <li>
-                <Link href={`/${countryCode}/categories`} className="hover:text-white transition-colors">
-                  Course Categories
+                <Link href={`/${countryCode}/courses-by-topics`} className="hover:text-white transition-colors">
+                  Courses by Topics
+                </Link>
+              </li>
+              <li>
+                <Link href={`/${countryCode}/speakers`} className="hover:text-white transition-colors text-amber-400 font-medium">
+                  Faculty & Speakers Directory →
                 </Link>
               </li>
             </ul>
@@ -92,7 +119,7 @@ export default function Footer({ countryCode = "us" }: { countryCode?: string })
               </li>
               <li>
                 <Link href={`/${countryCode}/dashboard?tab=downloads`} className="hover:text-white transition-colors">
-                  PDF Resources
+                  Conference Material
                 </Link>
               </li>
               <li>
@@ -110,6 +137,11 @@ export default function Footer({ countryCode = "us" }: { countryCode?: string })
               <li>
                 <Link href={`/${countryCode}/about`} className="hover:text-white transition-colors">
                   About Us
+                </Link>
+              </li>
+              <li>
+                <Link href={`/${countryCode}/speakers`} className="hover:text-white transition-colors">
+                  Meet the Speakers
                 </Link>
               </li>
               <li>
@@ -134,17 +166,31 @@ export default function Footer({ countryCode = "us" }: { countryCode?: string })
               </li>
               <li>
                 <Link href={`/${countryCode}/refund-policy`} className="hover:text-white transition-colors">
-                  Refund & Cancellation Policy
+                  Refund Policy
                 </Link>
               </li>
             </ul>
           </div>
         </div>
 
+        {/* Follow Us On Social Media */}
+        <SocialFollowBar
+          socialLinks={socialData.social_links}
+          globalEnabled={socialData.global_enabled}
+          settings={socialData.settings}
+        />
+
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <p>© {new Date().getFullYear()} AcademyIO Inc. All rights reserved. Medusa.js Commerce Architecture.</p>
+        <div
+          className={`pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs ${
+            hasSocialBar ? "mt-8" : "mt-12"
+          }`}
+        >
+          <p>© {new Date().getFullYear()} AcademyIO LLC. All rights reserved.</p>
           <div className="flex items-center gap-6">
+            <Link href={`/${countryCode}/speakers`} className="hover:text-white text-gray-400 transition-colors">
+              Faculty Directory
+            </Link>
             <Link href={`/${countryCode}/privacy`} className="hover:text-white transition-colors">
               Privacy
             </Link>
@@ -152,7 +198,7 @@ export default function Footer({ countryCode = "us" }: { countryCode?: string })
               Terms
             </Link>
             <Link href={`/${countryCode}/refund-policy`} className="hover:text-white transition-colors">
-              Refunds
+              Refund Policy
             </Link>
           </div>
         </div>

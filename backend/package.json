@@ -19,13 +19,16 @@
     "dev": "medusa develop",
     "test:integration:http": "TEST_TYPE=integration:http NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",
     "test:integration:modules": "TEST_TYPE=integration:modules NODE_OPTIONS=--experimental-vm-modules jest --silent=false --runInBand --forceExit",
-    "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit"
+    "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit",
+    "postinstall": "node scripts/patch-dashboard-sidebar.js"
   },
   "dependencies": {
     "@medusajs/admin-sdk": "2.18.0",
     "@medusajs/cli": "2.18.0",
     "@medusajs/framework": "2.18.0",
-    "@medusajs/medusa": "2.18.0"
+    "@medusajs/medusa": "2.18.0",
+    "nodemailer": "^10.1.1",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.18.0",
@@ -33,6 +36,7 @@
     "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.13",
     "@types/node": "^20.12.11",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.2.25",
     "jest": "^29.7.0",

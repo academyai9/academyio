@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100" fill="none" role="img" aria-label="Internal Revenue Service (IRS) Continuing Education Provider Logo">
+  <defs>
+    <linearGradient id="irsGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#002D62"/>
+      <stop offset="100%" stop-color="#001838"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C59B27"/>
+      <stop offset="100%" stop-color="#9A7611"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect width="320" height="100" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  
+  <!-- IRS Seal Emblem -->
+  <g transform="translate(14, 14)">
+    <circle cx="36" cy="36" r="34" fill="url(#irsGrad)"/>
+    <circle cx="36" cy="36" r="31" fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+    <circle cx="36" cy="36" r="28" fill="#002D62"/>
+    
+    <!-- Scales of Justice & Treasury Key Silhouette -->
+    <path d="M36 18v34M24 25l12-3 12 3M24 25l-4 10h8l-4-10zM48 25l-4 10h8l-4-10zM30 46h12v4H30z" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="36" cy="18" r="2" fill="url(#goldGrad)"/>
+    
+    <!-- Outer Star Accents -->
+    <circle cx="16" cy="36" r="1.2" fill="#C59B27"/>
+    <circle cx="56" cy="36" r="1.2" fill="#C59B27"/>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(96, 22)">
+    <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#002D62" letter-spacing="1.5">IRS</text>
+    <rect x="56" y="8" width="1" height="18" fill="#CBD5E1"/>
+    <text x="64" y="16" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" fill="#1E293B" letter-spacing="0.5">CONTINUING EDUCATION</text>
+    <text x="64" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="9.5" font-weight="800" fill="#0284C7" letter-spacing="0.8">PROVIDER</text>
+    
+    <!-- Subtitle Banner -->
+    <rect x="0" y="38" width="210" height="18" rx="4" fill="#F1F5F9"/>
+    <text x="8" y="50.5" font-family="system-ui, -apple-system, sans-serif" font-size="8.5" font-weight="600" fill="#475569" letter-spacing="0.2">APPROVED CE SPONSOR</text>
+  </g>
+</svg>

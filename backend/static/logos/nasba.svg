@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100" fill="none" role="img" aria-label="National Association of State Boards of Accountancy (NASBA) CPE Registry Logo">
+  <defs>
+    <linearGradient id="nasbaBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F2B48"/>
+      <stop offset="100%" stop-color="#081A2D"/>
+    </linearGradient>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Card -->
+  <rect width="320" height="100" rx="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+  
+  <!-- NASBA Emblem (Hexagon Shield with stylized grid) -->
+  <g transform="translate(14, 14)">
+    <polygon points="36,4 66,20 66,52 36,68 6,52 6,20" fill="url(#nasbaBlue)"/>
+    <polygon points="36,8 62,22 62,50 36,64 10,50 10,22" fill="none" stroke="url(#tealGrad)" stroke-width="1.5"/>
+    
+    <!-- Stylized Compass / Grid Lines -->
+    <line x1="36" y1="14" x2="36" y2="58" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.8"/>
+    <line x1="16" y1="36" x2="56" y2="36" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.8"/>
+    <circle cx="36" cy="36" r="14" fill="none" stroke="#38BDF8" stroke-width="1.2"/>
+    <circle cx="36" cy="36" r="4" fill="#38BDF8"/>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(94, 20)">
+    <text x="0" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="23" font-weight="900" fill="#0F2B48" letter-spacing="1.5">NASBA</text>
+    <rect x="92" y="8" width="1" height="18" fill="#CBD5E1"/>
+    <text x="100" y="16" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="800" fill="#1E293B" letter-spacing="0.5">NATIONAL REGISTRY OF</text>
+    <text x="100" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="9.5" font-weight="800" fill="#0284C7" letter-spacing="0.8">CPE SPONSORS</text>
+    
+    <!-- Subtitle Banner -->
+    <rect x="0" y="38" width="210" height="20" rx="4" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="0.8"/>
+    <text x="8" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="8.5" font-weight="700" fill="#15803D" letter-spacing="0.2">CPE REGISTRY VERIFIED</text>
+  </g>
+</svg>

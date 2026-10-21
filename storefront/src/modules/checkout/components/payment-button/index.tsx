@@ -20,11 +20,13 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   const notReady =
     !cart ||
     !cart.shipping_address ||
-    !cart.billing_address ||
     !cart.email ||
     (cart.shipping_methods?.length ?? 0) < 1
 
-  const paymentSession = cart.payment_collection?.payment_sessions?.[0]
+  const paymentSession =
+    cart.payment_collection?.payment_sessions?.find(
+      (s: any) => s.status === "pending" || s.status === "authorized"
+    ) || cart.payment_collection?.payment_sessions?.[0]
 
   switch (true) {
     case isStripeLike(paymentSession?.provider_id):
@@ -35,7 +37,12 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
           data-testid={dataTestId}
         />
       )
-    case isManual(paymentSession?.provider_id):
+    case isManual(paymentSession?.provider_id) ||
+      paymentSession?.provider_id === "pp_system_default":
+      return (
+        <ManualTestPaymentButton notReady={notReady} data-testid={dataTestId} />
+      )
+    case Boolean(paymentSession):
       return (
         <ManualTestPaymentButton notReady={notReady} data-testid={dataTestId} />
       )

@@ -11,21 +11,43 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     return res.status(401).json({ message: "Authentication required to access webinar content" })
   }
 
-  // 1. Verify customer entitlements for this webinar
+  // 1. Check direct customer entitlements for this webinar
   const entitlements = await webinarService.listCustomerEntitlements({
     customer_id: customerId,
     webinar: { id: webinarId },
     status: "active",
   })
 
-  if (!entitlements || entitlements.length === 0) {
+  // 2. Check active customer monthly subscription
+  const activeSubs = await webinarService.listCustomerSubscriptions({
+    customer_id: customerId,
+    status: "active",
+  })
+
+  const now = new Date()
+  const validSub = activeSubs.find(
+    (sub) => new Date(sub.current_period_end) > now
+  )
+
+  let plan: any = null
+  if (validSub) {
+    const [p] = await webinarService.listSubscriptionPlans({ id: validSub.plan_id })
+    if (p && p.status === "active") {
+      plan = p
+    }
+  }
+
+  const hasEntitlements = entitlements && entitlements.length > 0
+  const hasSubscription = Boolean(plan)
+
+  if (!hasEntitlements && !hasSubscription) {
     return res.status(403).json({
-      message: "Access denied. You do not own an active entitlement for this webinar.",
+      message: "Access denied. You do not own an active entitlement or subscription for this webinar.",
       entitled: false,
     })
   }
 
-  // Retrieve the full webinar record (including private administrative links)
+  // Retrieve full webinar record (including private administrative links)
   const [webinar] = await webinarService.listWebinars(
     { id: webinarId },
     { relations: ["resources"] }
@@ -35,16 +57,14 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     return res.status(404).json({ message: "Webinar not found" })
   }
 
-  // 2. Evaluate specific access permissions
+  // 3. Evaluate specific access permissions
   let hasLive = false
   let hasRecording = false
   let hasTranscript = false
   let hasPdf = false
 
-  const now = new Date()
-
-  for (const ent of entitlements as any[]) {
-    // Check if expired
+  // Grant permissions from direct entitlements
+  for (const ent of (entitlements || []) as any[]) {
     if (ent.expires_at && new Date(ent.expires_at) < now) {
       continue
     }
@@ -65,7 +85,15 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     }
   }
 
-  // 3. Construct authorized content payload strictly based on verified permissions
+  // Grant permissions from active monthly subscription plan
+  if (plan) {
+    if (plan.includes_live) hasLive = true
+    if (plan.includes_recording) hasRecording = true
+    if (plan.includes_transcript) hasTranscript = true
+    if (plan.includes_pdf) hasPdf = true
+  }
+
+  // 4. Construct authorized content payload strictly based on verified permissions
   const accessPayload: Record<string, any> = {
     webinar_id: webinar.id,
     title: webinar.title,
@@ -84,9 +112,16 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       can_access_transcript: hasTranscript,
       can_access_pdf: hasPdf,
     },
+    access: {
+      has_live: hasLive,
+      has_recording: hasRecording,
+      has_transcript: hasTranscript,
+      has_pdf: hasPdf,
+    },
+    subscription_access: Boolean(plan),
   }
 
-  // Live Webinar Content Delivery: Only if customer has live entitlement AND link is published
+  // Live Webinar Content Delivery
   if (hasLive) {
     if (webinar.live_link_published && webinar.live_stream_url) {
       accessPayload.live = {
@@ -103,67 +138,54 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     }
   }
 
-  // Recording Delivery: Only if customer has recording entitlement
+  // Recording Delivery
   if (hasRecording) {
     const recordingExpired = webinar.recording_expires_at && new Date(webinar.recording_expires_at) < now
-    if (webinar.recording_url && !recordingExpired) {
+    const isRecordingPublished = Boolean(webinar.recording_published)
+    if (webinar.recording_url && isRecordingPublished && !recordingExpired) {
       accessPayload.recording = {
         available: true,
         recording_url: webinar.recording_url,
         instructions: webinar.recording_instructions || "High-definition recorded video session with playback controls.",
         expires_at: webinar.recording_expires_at,
       }
-    } else if (recordingExpired) {
-      accessPayload.recording = {
-        available: false,
-        status: "expired",
-        instructions: "Recording access window has ended.",
-      }
     } else {
       accessPayload.recording = {
         available: false,
-        status: "processing",
-        instructions: "Recording is currently being processed and will be available within 24 hours of live broadcast.",
+        status: recordingExpired ? "expired" : (!isRecordingPublished ? "recording_pending" : "processing"),
+        instructions: recordingExpired
+          ? "Recording access expired."
+          : !isRecordingPublished
+          ? "The live event has concluded. The recording is currently being processed and will be published by the organizer soon."
+          : "Recording is being processed.",
       }
     }
   }
 
-  // Transcript Delivery: Only if customer has transcript entitlement
+  // Transcript Delivery
   if (hasTranscript) {
-    if (webinar.transcript_file_url || webinar.transcript_content) {
-      accessPayload.transcript = {
-        available: true,
-        content: webinar.transcript_content || null,
-        download_url: webinar.transcript_file_url || null,
-      }
-    } else {
-      accessPayload.transcript = {
-        available: false,
-        status: "in_transcription",
-        instructions: "Full verified transcript is being prepared and will be published shortly.",
-      }
+    accessPayload.transcript = {
+      available: Boolean(webinar.transcript_file_url || webinar.transcript_content),
+      file_url: webinar.transcript_file_url,
+      content: webinar.transcript_content,
     }
   }
 
-  // PDF Downloads Delivery: Only if customer has PDF entitlement
+  // PDF Resource Delivery
   if (hasPdf) {
-    const resources = ((webinar as any).resources || [])
+    const pdfList = (webinar.resources || [])
       .filter((r: any) => r.is_published)
       .map((r: any) => ({
         id: r.id,
         title: r.title,
         description: r.description,
+        file_url: r.file_url,
         file_name: r.file_name,
         file_size: r.file_size,
-        file_type: r.file_type,
         access_type: r.access_type,
-        download_url: `/store/customer/resources/${r.id}/download`,
       }))
-
-    accessPayload.pdf_resources = {
-      available: resources.length > 0,
-      resources,
-    }
+    accessPayload.resources = pdfList
+    accessPayload.pdf_resources = { resources: pdfList }
   }
 
   res.json(accessPayload)

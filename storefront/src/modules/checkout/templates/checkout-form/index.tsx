@@ -20,17 +20,16 @@ export default async function CheckoutForm({
   const shippingMethods = await listCartShippingMethods(cart.id)
   const paymentMethods = await listCartPaymentMethods(cart.region?.id ?? "")
 
-  if (!shippingMethods || !paymentMethods) {
-    return null
-  }
+  const safeShippingMethods = shippingMethods || []
+  const safePaymentMethods = paymentMethods || []
 
   return (
     <div className="w-full grid grid-cols-1 gap-y-8">
       <Addresses cart={cart} customer={customer} />
 
-      <Shipping cart={cart} availableShippingMethods={shippingMethods} />
+      <Shipping cart={cart} availableShippingMethods={safeShippingMethods} />
 
-      <Payment cart={cart} availablePaymentMethods={paymentMethods} />
+      <Payment cart={cart} availablePaymentMethods={safePaymentMethods} />
 
       <Review cart={cart} />
     </div>

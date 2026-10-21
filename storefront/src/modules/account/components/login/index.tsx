@@ -40,6 +40,17 @@ const Login = ({ setCurrentView }: Props) => {
             required
             data-testid="password-input"
           />
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-ui-fg-subtle">
+              <input
+                type="checkbox"
+                name="remember_me"
+                id="remember_me_account"
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <span>Remember me</span>
+            </label>
+          </div>
         </div>
         <ErrorMessage error={message} data-testid="login-error-message" />
         <SubmitButton data-testid="sign-in-button" className="w-full mt-6">

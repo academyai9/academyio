@@ -18,6 +18,14 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   if (body.recording_expires_at !== undefined) {
     updateData.recording_expires_at = body.recording_expires_at ? new Date(body.recording_expires_at) : null
   }
+  if (body.recording_published !== undefined) {
+    updateData.recording_published = Boolean(body.recording_published)
+    if (Boolean(body.recording_published)) {
+      updateData.is_ondemand = true
+    } else {
+      updateData.is_ondemand = false
+    }
+  }
 
   const updated = await webinarService.updateWebinars(updateData)
 

@@ -25,7 +25,9 @@ const Addresses = ({
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "address"
+  const isOpen =
+    searchParams.get("step") === "address" ||
+    (!searchParams.get("step") && !cart?.shipping_address)
 
   const { state: sameAsBilling, toggle: toggleSameAsBilling } = useToggleState(
     cart?.shipping_address && cart?.billing_address
@@ -169,8 +171,14 @@ const Addresses = ({
                 </div>
               </div>
             ) : (
-              <div>
-                <Spinner />
+              <div className="py-2">
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="text-sm font-medium text-ui-fg-interactive hover:underline"
+                >
+                  Enter delivery address
+                </button>
               </div>
             )}
           </div>
