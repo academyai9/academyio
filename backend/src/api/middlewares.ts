@@ -136,5 +136,17 @@ export default defineMiddlewares({
         authenticate("user", ["session", "bearer", "api-key"]),
       ],
     },
+    {
+      matcher: "/admin/newsletter-subscribers*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/newsletter-campaigns*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
   ],
 })

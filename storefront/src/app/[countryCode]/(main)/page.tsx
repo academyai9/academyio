@@ -13,6 +13,7 @@ import ClientTestimonials from "@/components/testimonials/ClientTestimonials"
 import AccreditationTrustBar from "@/components/accreditation/AccreditationTrustBar"
 import CreditsSection from "@/components/credits/CreditsSection"
 import OtherInfoSection from "@/components/info/OtherInfoSection"
+import HomepageNewsletterSection from "@/components/newsletter/HomepageNewsletterSection"
 
 export default async function HomePage(props: {
   params: Promise<{ countryCode: string }>
@@ -303,6 +304,9 @@ export default async function HomePage(props: {
 
       {/* Client Testimonials Section */}
       <ClientTestimonials testimonials={testimonials} />
+
+      {/* Newsletter Subscription Section */}
+      <HomepageNewsletterSection countryCode={countryCode} />
 
       {/* Ready to Enroll Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -5,6 +5,7 @@ import { getStoreSocialLinks } from "@lib/data/social-media"
 import { getContactInfo } from "@lib/data/contact"
 import SocialFollowBar from "./SocialFollowBar"
 import OpenCookiePreferencesButton from "@/components/cookies/OpenCookiePreferencesButton"
+import NewsletterSubscribeForm from "@/components/newsletter/NewsletterSubscribeForm"
 
 export default async function Footer({ countryCode = "us" }: { countryCode?: string }) {
   const [socialData, contactInfo] = await Promise.all([
@@ -20,6 +21,21 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
   return (
     <footer className="bg-slate-900 text-gray-400 text-xs border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Newsletter Signup Banner in Footer */}
+        <div className="mb-14 p-6 sm:p-8 rounded-3xl bg-slate-800/80 border border-slate-700/80 shadow-lg flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-xl text-center lg:text-left">
+            <h3 className="text-white font-bold text-base sm:text-lg tracking-tight">
+              Stay Updated with AcademyIO
+            </h3>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              Receive updates about upcoming webinars, new courses, professional education, and special offers.
+            </p>
+          </div>
+          <div className="w-full lg:w-96">
+            <NewsletterSubscribeForm countryCode={countryCode} source="website_footer" variant="compact" />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Brand Info */}
           <div className="lg:col-span-1 space-y-4">
