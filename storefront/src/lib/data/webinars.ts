@@ -1,7 +1,5 @@
 import { fetchWithTimeout } from "@lib/util/fetch"
-
-const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
-const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
+import { BACKEND_URL, PUBLISHABLE_KEY } from "@lib/config-env"
 
 export interface SpeakerItem {
   id: string
@@ -140,7 +138,7 @@ export async function getWebinars(params: {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 30 },
+      next: { revalidate: 300 },
     })
 
     if (!res.ok) {
@@ -161,7 +159,7 @@ export async function getWebinarBySlug(slug: string): Promise<WebinarItem | null
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 30 },
+      next: { revalidate: 300 },
     })
 
     if (!res.ok) {
@@ -528,7 +526,7 @@ export async function getStoreSpeakers(params: { featured?: boolean } = {}): Pro
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 30 },
+      next: { revalidate: 300 },
     })
 
     if (res.ok) {
@@ -556,7 +554,7 @@ export async function getSpeakerById(id: string): Promise<SpeakerItem | null> {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 30 },
+      next: { revalidate: 300 },
     })
 
     if (res.ok) {
