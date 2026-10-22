@@ -9,9 +9,15 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {
-      storeCors: process.env.STORE_CORS || "http://localhost:8000,http://localhost:3000",
-      adminCors: process.env.ADMIN_CORS || "http://localhost:5173,http://localhost:9000,http://localhost:8000",
-      authCors: process.env.AUTH_CORS || "http://localhost:5173,http://localhost:9000,http://localhost:8000",
+      storeCors:
+        process.env.STORE_CORS ||
+        "http://localhost:8000,http://localhost:3000,https://www.academyio.com,https://academyio.com,/[.]*\\.vercel\\.app$/",
+      adminCors:
+        process.env.ADMIN_CORS ||
+        "http://localhost:5173,http://localhost:9000,http://localhost:8000,https://www.academyio.com,https://academyio.com,/[.]*\\.vercel\\.app$/",
+      authCors:
+        process.env.AUTH_CORS ||
+        "http://localhost:5173,http://localhost:9000,http://localhost:8000,https://www.academyio.com,https://academyio.com,/[.]*\\.vercel\\.app$/",
       jwtSecret: process.env.JWT_SECRET || "supersecretwebinarplatformjwtkey12345",
       cookieSecret: process.env.COOKIE_SECRET || "supersecretwebinarplatformcookiekey12345",
     }

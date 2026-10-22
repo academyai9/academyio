@@ -1,13 +1,15 @@
 import { getLocaleHeader } from "@lib/util/get-locale-header"
 import Medusa, { FetchArgs, FetchInput } from "@medusajs/js-sdk"
 
-// Defaults to standard port for Medusa server
-let MEDUSA_BACKEND_URL = "http://localhost:9000"
+// Defaults to standard port for Medusa server locally, or Render production backend URL
+export const MEDUSA_BACKEND_URL =
+  process.env.MEDUSA_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+  (process.env.NODE_ENV === "production" || process.env.VERCEL
+    ? "https://academyio-backend.onrender.com"
+    : "http://localhost:9000")
 
-if (process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL) {
-  MEDUSA_BACKEND_URL =
-    process.env.MEDUSA_BACKEND_URL || process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL!
-}
+export const BACKEND_URL = MEDUSA_BACKEND_URL
 
 // Global fetch timeout patch to prevent undici HeadersTimeoutError on Vercel build
 if (

@@ -5,15 +5,27 @@
 export async function fetchWithTimeout(
   input: string | URL | Request,
   init?: RequestInit,
-  timeoutMs = 4000
+  timeoutMs = 5000
 ): Promise<Response> {
+  let finalInput = input
+  if (
+    (process.env.NODE_ENV === "production" || process.env.VERCEL) &&
+    typeof finalInput === "string" &&
+    finalInput.startsWith("http://localhost:9000")
+  ) {
+    finalInput = finalInput.replace(
+      "http://localhost:9000",
+      "https://academyio-backend.onrender.com"
+    )
+  }
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => {
-    controller.abort(new Error(`Fetch timed out after ${timeoutMs}ms for ${input.toString()}`))
+    controller.abort(new Error(`Fetch timed out after ${timeoutMs}ms for ${finalInput.toString()}`))
   }, timeoutMs)
 
   try {
-    return await fetch(input, {
+    return await fetch(finalInput, {
       ...init,
       signal: init?.signal || controller.signal,
     })
