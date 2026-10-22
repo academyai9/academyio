@@ -19,8 +19,8 @@ export interface TurnstileVerificationResult {
 
 const CLOUDFLARE_SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
-// Official Cloudflare Turnstile Dummy Secret (Always Passes)
-const DEV_DUMMY_SECRET = "1x0000000000000000000000000000000AA"
+// Cloudflare Turnstile Secret Key
+const DEFAULT_TURNSTILE_SECRET = "0x4AAAAAAFgxi8gbs0wUCicgzYnc-b2qHI0"
 
 export async function verifyTurnstileToken(
   token?: string | null,
@@ -34,7 +34,7 @@ export async function verifyTurnstileToken(
     }
   }
 
-  const secretKey = process.env.TURNSTILE_SECRET_KEY || DEV_DUMMY_SECRET
+  const secretKey = process.env.TURNSTILE_SECRET_KEY || DEFAULT_TURNSTILE_SECRET
 
   if (!secretKey) {
     if (process.env.NODE_ENV === "production") {

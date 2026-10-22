@@ -45,10 +45,20 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       ORDER BY display_order ASC, created_at ASC;
     `)
 
+    // Deduplicate in case any redundant records exist
+    const rawLinks = linksRes.rows || []
+    const seen = new Set<string>()
+    const deduplicatedLinks = rawLinks.filter((link: any) => {
+      const key = (link.id || `${link.platform}-${link.url}`).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
     res.json({
       global_enabled: true,
-      social_links: linksRes.rows || [],
-      count: (linksRes.rows || []).length,
+      social_links: deduplicatedLinks,
+      count: deduplicatedLinks.length,
       settings,
     })
   } catch (error: any) {

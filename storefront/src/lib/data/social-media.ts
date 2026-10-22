@@ -33,7 +33,7 @@ export async function getStoreSocialLinks(): Promise<SocialMediaResponse> {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 3600 },
+      next: { revalidate: 60, tags: ["social_media"] },
     })
 
     if (!res.ok) {

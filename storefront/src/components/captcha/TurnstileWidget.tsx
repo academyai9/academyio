@@ -35,8 +35,8 @@ interface TurnstileWidgetProps {
   siteKey?: string
 }
 
-// Official Cloudflare Turnstile testing sitekey (Always Passes)
-const DEV_DUMMY_SITEKEY = "1x00000000000000000000AA"
+// Cloudflare Turnstile sitekey
+const DEFAULT_TURNSTILE_SITEKEY = "0x4AAAAAAFgxi8yKtuNeyzZv"
 
 export default function TurnstileWidget({
   onVerify,
@@ -54,7 +54,7 @@ export default function TurnstileWidget({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const activeSiteKey =
-    siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEV_DUMMY_SITEKEY
+    siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEFAULT_TURNSTILE_SITEKEY
 
   const handleVerify = useCallback(
     (responseToken: string) => {

@@ -95,8 +95,24 @@ export default function SocialFollowBar({
   globalEnabled?: boolean
   settings?: SectionSettings
 }) {
+  // Deduplicate links by ID, platform, or URL to guarantee each platform renders exactly once
+  const uniqueLinks: StoreSocialLink[] = []
+  const seenKeys = new Set<string>()
+
+  for (const item of socialLinks || []) {
+    const key = (item.id || `${item.platform}-${item.url}`).toLowerCase().trim()
+    const platformKey = (item.platform || item.name || "").toLowerCase().trim()
+    if (!seenKeys.has(key) && !seenKeys.has(platformKey)) {
+      seenKeys.add(key)
+      if (platformKey && platformKey !== "custom") {
+        seenKeys.add(platformKey)
+      }
+      uniqueLinks.push(item)
+    }
+  }
+
   // If global section is disabled or no active social links exist, hide section without layout gaps
-  if (!globalEnabled || !socialLinks || socialLinks.length === 0) {
+  if (!globalEnabled || uniqueLinks.length === 0) {
     return null
   }
 
@@ -111,7 +127,7 @@ export default function SocialFollowBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
-        {socialLinks.map((item) => {
+        {uniqueLinks.map((item) => {
           const target = item.open_in_new_tab ? "_blank" : "_self"
           const rel = item.open_in_new_tab ? "noopener noreferrer" : undefined
 

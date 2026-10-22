@@ -45,9 +45,19 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       description: "Follow our official channels for the latest webinar announcements, CPE updates, and tax law analysis.",
     }
 
+    // Deduplicate in case redundant records exist
+    const rawLinks = linksRes.rows || []
+    const seen = new Set<string>()
+    const deduplicatedLinks = rawLinks.filter((link: any) => {
+      const key = (link.id || `${link.platform}-${link.url}`).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
     res.json({
-      social_links: linksRes.rows || [],
-      count: (linksRes.rows || []).length,
+      social_links: deduplicatedLinks,
+      count: deduplicatedLinks.length,
       settings,
     })
   } catch (error: any) {
