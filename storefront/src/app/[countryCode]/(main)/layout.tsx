@@ -61,7 +61,7 @@ export default async function PageLayout(props: {
   ])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 font-sans antialiased transition-colors">
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 font-sans antialiased transition-colors overflow-x-hidden">
       <FrontendTrackingLoader trackingCodes={trackingCodes} />
       <Navbar countryCode={countryCode} customer={customer} />
       <main className="flex-1">{props.children}</main>

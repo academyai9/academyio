@@ -107,20 +107,20 @@ export default function Navbar({ countryCode = "us", customer }: NavbarProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shadow-sm transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 py-3">
+    <header className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20 py-2 sm:py-3">
           {/* Brand Logo */}
-          <Link href={`/${countryCode}`} className="flex items-center group py-1" aria-label="AcademyIO Homepage">
+          <Link href={`/${countryCode}`} className="flex items-center group py-1 shrink-0" aria-label="AcademyIO Homepage">
             <img
               src="/logos/academyio-logo.png"
               alt="AcademyIO - Empowering Future Minds"
-              className="h-10 sm:h-11 w-auto max-w-[200px] sm:max-w-[230px] object-contain dark:hidden transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-8 sm:h-10 md:h-11 w-auto max-w-[145px] sm:max-w-[190px] md:max-w-[230px] object-contain dark:hidden transition-transform duration-200 group-hover:scale-[1.02]"
             />
             <img
               src="/logos/academyio-logo-white.png"
               alt="AcademyIO - Empowering Future Minds"
-              className="h-10 sm:h-11 w-auto max-w-[200px] sm:max-w-[230px] object-contain hidden dark:block transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-8 sm:h-10 md:h-11 w-auto max-w-[145px] sm:max-w-[190px] md:max-w-[230px] object-contain hidden dark:block transition-transform duration-200 group-hover:scale-[1.02]"
             />
           </Link>
 
@@ -246,23 +246,25 @@ export default function Navbar({ countryCode = "us", customer }: NavbarProps) {
           </nav>
 
           {/* Right Action Controls: Search, ThemeToggle, Cart, Auth */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
             {/* Search */}
             <Link
               href={`/${countryCode}/search`}
-              className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title="Search webinars"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </Link>
 
-            {/* Theme Toggle (Day & Night Mode) */}
-            <ThemeToggle />
+            {/* Theme Toggle (Day & Night Mode) - hidden on mobile header, accessible in drawer */}
+            <div className="hidden sm:inline-flex items-center">
+              <ThemeToggle />
+            </div>
 
             {/* Direct Checkout */}
             <Link
               href={`/${countryCode}/checkout`}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-100 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-semibold p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-100 transition-colors"
               title="Proceed to Checkout"
             >
               <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -271,81 +273,93 @@ export default function Navbar({ countryCode = "us", customer }: NavbarProps) {
 
             {/* Authentication Buttons / User Dropdown */}
             {customer ? (
-              /* LOGGED IN: Welcome, {Name} Dropdown */
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 text-gray-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm"
-                  aria-expanded={userMenuOpen}
+              <>
+                {/* Mobile: Compact Avatar Circle linking to Dashboard */}
+                <Link
+                  href={`/${countryCode}/dashboard`}
+                  className="flex md:hidden items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-colors shrink-0 shadow-xs"
+                  title="My Account"
+                  aria-label="My Account"
                 >
-                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-[11px] shrink-0">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="font-bold">Welcome, {displayName}</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-gray-500 dark:text-slate-400 transition-transform ${
-                      userMenuOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
+                  {displayName.charAt(0).toUpperCase()}
+                </Link>
 
-                <div
-                  className={`absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-800 py-2 z-50 transition-all ${
-                    userMenuOpen ? "block" : "hidden"
-                  }`}
-                >
-                  {/* User Profile Card */}
-                  <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
-                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                      {customer.first_name
-                        ? `${customer.first_name} ${customer.last_name || ""}`.trim()
-                        : displayName}
-                    </p>
-                    <p className="text-[11px] text-gray-500 dark:text-slate-400 truncate mt-0.5">
-                      {customer.email}
-                    </p>
-                    <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      Verified Customer
+                {/* Desktop: Welcome, {Name} Dropdown */}
+                <div className="relative hidden md:block" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 text-gray-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                    aria-expanded={userMenuOpen}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-[11px] shrink-0">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-bold">Welcome, {displayName}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-gray-500 dark:text-slate-400 transition-transform ${
+                        userMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <div
+                    className={`absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-800 py-2 z-50 transition-all ${
+                      userMenuOpen ? "block" : "hidden"
+                    }`}
+                  >
+                    {/* User Profile Card */}
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
+                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        {customer.first_name
+                          ? `${customer.first_name} ${customer.last_name || ""}`.trim()
+                          : displayName}
+                      </p>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-400 truncate mt-0.5">
+                        {customer.email}
+                      </p>
+                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Verified Customer
+                      </div>
+                    </div>
+
+                    {/* Navigation Items */}
+                    <div className="py-1">
+                      {customerMenuItems.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <Link
+                            key={item.label}
+                            href={item.href}
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <Icon className="w-3.5 h-3.5 text-gray-400 dark:text-slate-400" />
+                            <span>{item.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+
+                    {/* Logout Button */}
+                    <div className="pt-1 border-t border-gray-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors text-left disabled:opacity-50"
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-red-500" />
+                        <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+                      </button>
                     </div>
                   </div>
-
-                  {/* Navigation Items */}
-                  <div className="py-1">
-                    {customerMenuItems.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <Link
-                          key={item.label}
-                          href={item.href}
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <Icon className="w-3.5 h-3.5 text-gray-400 dark:text-slate-400" />
-                          <span>{item.label}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-
-                  {/* Logout Button */}
-                  <div className="pt-1 border-t border-gray-100 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors text-left disabled:opacity-50"
-                    >
-                      <LogOut className="w-3.5 h-3.5 text-red-500" />
-                      <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
-                    </button>
-                  </div>
                 </div>
-              </div>
+              </>
             ) : (
-              /* LOGGED OUT: Sign Up and Login */
-              <div className="flex items-center gap-2">
+              /* LOGGED OUT: Sign Up and Login - prominent on desktop md+, accessible inside mobile drawer */
+              <div className="hidden md:flex items-center gap-2">
                 <Link
                   href={`/${countryCode}/register`}
                   className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 text-gray-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
@@ -366,10 +380,10 @@ export default function Navbar({ countryCode = "us", customer }: NavbarProps) {
             {/* Mobile Hamburger Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg md:hidden transition-colors"
+              className="p-2 -mr-1 text-gray-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg md:hidden transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
