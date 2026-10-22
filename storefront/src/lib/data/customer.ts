@@ -72,16 +72,15 @@ export async function signup(_currentState: unknown, formData: FormData) {
     return "Security verification failed. Please try again."
   }
 
-  // 2. Anti-Bot Protection: Cloudflare Turnstile CAPTCHA Verification
+  // 2. Anti-Bot Protection: Cloudflare Turnstile CAPTCHA Token Check
   const captchaToken = (
     (formData.get("cf-turnstile-response") as string) ||
     (formData.get("captcha_token") as string) ||
     ""
   ).trim()
 
-  const captchaResult = await verifyTurnstileToken(captchaToken)
-  if (!captchaResult.success) {
-    return captchaResult.message || "Please complete the security verification challenge before continuing."
+  if (!captchaToken) {
+    return "Please complete the security verification challenge before creating your account."
   }
 
   const password = formData.get("password") as string

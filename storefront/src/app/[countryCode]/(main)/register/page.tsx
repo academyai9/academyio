@@ -414,7 +414,9 @@ export default function RegisterPage() {
                 setError(null)
               }}
               onExpire={() => setCaptchaToken("")}
-              onError={(err) => setError(err)}
+              onError={() => {
+                setCaptchaToken("")
+              }}
             />
           </div>
 

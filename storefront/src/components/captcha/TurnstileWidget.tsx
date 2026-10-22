@@ -129,52 +129,65 @@ export default function TurnstileWidget({
   }
 
   useEffect(() => {
-    // If Turnstile script already loaded on page
-    if (typeof window !== "undefined" && window.turnstile) {
-      renderWidget()
+    let checkInterval: NodeJS.Timeout | null = null
+    let isSubscribed = true
+
+    const tryRender = () => {
+      if (!isSubscribed) return
+      if (typeof window !== "undefined" && window.turnstile && typeof window.turnstile.render === "function") {
+        renderWidget()
+        return true
+      }
+      return false
+    }
+
+    // If Turnstile script is already loaded and ready
+    if (tryRender()) {
       return
     }
 
-    // Otherwise, load Turnstile script dynamically
+    window.onloadTurnstileCallback = () => {
+      if (isSubscribed) {
+        renderWidget()
+      }
+    }
+
     const scriptId = "cf-turnstile-script"
     let script = document.getElementById(scriptId) as HTMLScriptElement | null
 
     if (!script) {
       script = document.createElement("script")
       script.id = scriptId
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
       script.async = true
       script.defer = true
 
-      window.onloadTurnstileCallback = () => {
-        renderWidget()
-      }
-
       script.onload = () => {
-        if (window.turnstile) {
-          renderWidget()
-        }
+        tryRender()
       }
 
       script.onerror = () => {
-        setHasError(true)
-        setErrorMessage("Failed to load security verification. Please check your network or ad blocker.")
+        if (isSubscribed) {
+          setHasError(true)
+          setErrorMessage("Failed to load security verification. Please check your network or ad blocker.")
+        }
       }
 
       document.head.appendChild(script)
-    } else {
-      // Script tag exists, wait for turnstile global
-      const checkInterval = setInterval(() => {
-        if (window.turnstile) {
-          clearInterval(checkInterval)
-          renderWidget()
-        }
-      }, 100)
-
-      return () => clearInterval(checkInterval)
     }
 
+    // Polling fallback to guarantee rendering once script evaluates
+    let attempts = 0
+    checkInterval = setInterval(() => {
+      attempts++
+      if (tryRender() || attempts > 50) {
+        if (checkInterval) clearInterval(checkInterval)
+      }
+    }, 150)
+
     return () => {
+      isSubscribed = false
+      if (checkInterval) clearInterval(checkInterval)
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current)
