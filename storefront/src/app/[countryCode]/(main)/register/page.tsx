@@ -30,6 +30,19 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const handleCaptchaVerify = React.useCallback((token: string) => {
+    setCaptchaToken(token)
+    setError(null)
+  }, [])
+
+  const handleCaptchaExpire = React.useCallback(() => {
+    setCaptchaToken("")
+  }, [])
+
+  const handleCaptchaError = React.useCallback(() => {
+    setCaptchaToken("")
+  }, [])
+
   const handleAttendeeEmailChange = (index: number, val: string) => {
     const updated = [...attendeeEmails]
     updated[index] = val
@@ -409,14 +422,9 @@ export default function RegisterPage() {
           <div className="pt-1">
             <TurnstileWidget
               key={captchaResetKey}
-              onVerify={(token) => {
-                setCaptchaToken(token)
-                setError(null)
-              }}
-              onExpire={() => setCaptchaToken("")}
-              onError={() => {
-                setCaptchaToken("")
-              }}
+              onVerify={handleCaptchaVerify}
+              onExpire={handleCaptchaExpire}
+              onError={handleCaptchaError}
             />
           </div>
 

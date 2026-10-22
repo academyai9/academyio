@@ -53,140 +53,139 @@ export default function TurnstileWidget({
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  // Use stable refs for callbacks so parent re-renders NEVER cause widget re-render or infinite verification loops
+  const onVerifyRef = useRef(onVerify)
+  onVerifyRef.current = onVerify
+
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
+
+  const onExpireRef = useRef(onExpire)
+  onExpireRef.current = onExpire
+
   const activeSiteKey =
     siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEFAULT_TURNSTILE_SITEKEY
 
-  const handleVerify = useCallback(
-    (responseToken: string) => {
-      setToken(responseToken)
-      setHasError(false)
-      setErrorMessage(null)
-      onVerify(responseToken)
-    },
-    [onVerify]
-  )
-
-  const handleExpire = useCallback(() => {
-    setToken("")
-    if (onExpire) {
-      onExpire()
-    }
-  }, [onExpire])
-
-  const handleError = useCallback(
-    (errorCode?: string) => {
-      setToken("")
-      setHasError(true)
-      const msg = "Security check could not be completed. Please click refresh."
-      setErrorMessage(msg)
-      if (onError) {
-        onError(errorCode ? `${msg} (${errorCode})` : msg)
-      }
-    },
-    [onError]
-  )
-
-  const renderWidget = useCallback(() => {
-    if (!containerRef.current || !window.turnstile) return
-
-    // If widget already rendered, reset or remove first
-    if (widgetIdRef.current) {
-      try {
-        window.turnstile.remove(widgetIdRef.current)
-      } catch {}
-      widgetIdRef.current = null
-    }
-
-    try {
-      const id = window.turnstile.render(containerRef.current, {
-        sitekey: activeSiteKey,
-        theme: theme,
-        size: "normal",
-        callback: handleVerify,
-        "error-callback": handleError,
-        "expired-callback": handleExpire,
-        "refresh-expired": "auto",
-      })
-      widgetIdRef.current = id
-      setIsLoaded(true)
-    } catch (e: any) {
-      console.warn("Turnstile render error:", e)
-      handleError()
-    }
-  }, [activeSiteKey, theme, handleVerify, handleError, handleExpire])
-
-  const handleManualReset = () => {
+  const handleManualReset = useCallback(() => {
     setToken("")
     setHasError(false)
     setErrorMessage(null)
     if (widgetIdRef.current && window.turnstile) {
       try {
         window.turnstile.reset(widgetIdRef.current)
-        return
       } catch {}
     }
-    renderWidget()
-  }
+  }, [])
 
   useEffect(() => {
     let checkInterval: NodeJS.Timeout | null = null
-    let isSubscribed = true
+    let isMounted = true
 
-    const tryRender = () => {
-      if (!isSubscribed) return
-      if (typeof window !== "undefined" && window.turnstile && typeof window.turnstile.render === "function") {
-        renderWidget()
+    const doRender = () => {
+      if (!isMounted || !containerRef.current) return false
+      if (
+        typeof window === "undefined" ||
+        !window.turnstile ||
+        typeof window.turnstile.render !== "function"
+      ) {
+        return false
+      }
+
+      // If already rendered, do not re-render!
+      if (widgetIdRef.current) {
         return true
       }
-      return false
-    }
 
-    // If Turnstile script is already loaded and ready
-    if (tryRender()) {
-      return
-    }
+      try {
+        containerRef.current.innerHTML = ""
 
-    window.onloadTurnstileCallback = () => {
-      if (isSubscribed) {
-        renderWidget()
-      }
-    }
+        const id = window.turnstile.render(containerRef.current, {
+          sitekey: activeSiteKey,
+          theme: theme,
+          size: "normal",
+          retry: "auto",
+          "refresh-expired": "auto",
+          callback: (responseToken: string) => {
+            if (!isMounted) return
+            setToken(responseToken)
+            setHasError(false)
+            setErrorMessage(null)
+            onVerifyRef.current?.(responseToken)
+          },
+          "error-callback": (errorCode?: string) => {
+            if (!isMounted) return
+            console.warn("Turnstile widget reported error code:", errorCode)
+            setToken("")
+            setHasError(true)
+            const msg = errorCode
+              ? `Security check could not be completed (${errorCode}). Please click retry.`
+              : "Security check could not be completed. Please click retry."
+            setErrorMessage(msg)
+            onErrorRef.current?.(msg)
+          },
+          "expired-callback": () => {
+            if (!isMounted) return
+            setToken("")
+            onExpireRef.current?.()
+          },
+        })
 
-    const scriptId = "cf-turnstile-script"
-    let script = document.getElementById(scriptId) as HTMLScriptElement | null
-
-    if (!script) {
-      script = document.createElement("script")
-      script.id = scriptId
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
-      script.async = true
-      script.defer = true
-
-      script.onload = () => {
-        tryRender()
-      }
-
-      script.onerror = () => {
-        if (isSubscribed) {
+        widgetIdRef.current = id
+        setIsLoaded(true)
+        return true
+      } catch (err: any) {
+        console.warn("Turnstile render exception:", err)
+        if (isMounted) {
           setHasError(true)
-          setErrorMessage("Failed to load security verification. Please check your network or ad blocker.")
+          setErrorMessage("Failed to initialize security verification.")
+        }
+        return false
+      }
+    }
+
+    // Try rendering immediately if turnstile script is ready
+    if (!doRender()) {
+      window.onloadTurnstileCallback = () => {
+        if (isMounted) {
+          doRender()
         }
       }
 
-      document.head.appendChild(script)
+      const scriptId = "cf-turnstile-script"
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null
+
+      if (!script) {
+        script = document.createElement("script")
+        script.id = scriptId
+        script.src =
+          "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit"
+        script.async = true
+        script.defer = true
+
+        script.onerror = () => {
+          if (isMounted) {
+            setHasError(true)
+            setErrorMessage(
+              "Failed to load security verification. Please check your network or ad blocker."
+            )
+          }
+        }
+
+        document.head.appendChild(script)
+      }
+
+      // Check periodically until ready (fallback for race conditions or existing scripts)
+      let attempts = 0
+      checkInterval = setInterval(() => {
+        attempts++
+        if (doRender() || attempts > 50) {
+          if (checkInterval) clearInterval(checkInterval)
+        }
+      }, 100)
     }
 
-    // Polling fallback to guarantee rendering once script evaluates
-    let attempts = 0
-    checkInterval = setInterval(() => {
-      attempts++
-      if (tryRender() || attempts > 50) {
-        if (checkInterval) clearInterval(checkInterval)
-      }
-    }, 150)
-
     return () => {
-      isSubscribed = false
+      isMounted = false
       if (checkInterval) clearInterval(checkInterval)
       if (widgetIdRef.current && window.turnstile) {
         try {
@@ -195,7 +194,7 @@ export default function TurnstileWidget({
         widgetIdRef.current = null
       }
     }
-  }, [renderWidget])
+  }, [activeSiteKey, theme])
 
   return (
     <div
