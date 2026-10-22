@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import Script from "next/script"
 import { StoreTrackingCode } from "@lib/data/tracking-codes"
+import { getStoredCookieConsent, CookieConsentSettings } from "@lib/util/cookie-consent"
 
 interface FrontendTrackingLoaderProps {
   trackingCodes: StoreTrackingCode[]
@@ -53,8 +54,22 @@ function isCodeEligibleForPath(code: StoreTrackingCode, pathname: string): boole
 export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendTrackingLoaderProps) {
   const pathname = usePathname()
   const [codes, setCodes] = React.useState<StoreTrackingCode[]>(trackingCodes)
+  const [consent, setConsent] = React.useState<CookieConsentSettings | null>(() => getStoredCookieConsent())
   const initializedProviders = useRef<Set<string>>(new Set())
   const lastPathname = useRef<string>(pathname)
+
+  // Listen for Cookie Consent updates
+  useEffect(() => {
+    const handleConsent = (e: any) => {
+      if (e && e.detail) {
+        setConsent(e.detail)
+      } else {
+        setConsent(getStoredCookieConsent())
+      }
+    }
+    window.addEventListener("academyio_consent_updated", handleConsent)
+    return () => window.removeEventListener("academyio_consent_updated", handleConsent)
+  }, [])
 
   // Client-side fetch to ensure instant reactivity if admin modifies tracking codes
   useEffect(() => {
@@ -91,8 +106,25 @@ export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendT
     return null
   }
 
-  // Filter only enabled codes
-  const enabledCodes = codes.filter((c) => c.is_enabled)
+  // Filter only enabled codes and respect cookie consent
+  const enabledCodes = codes.filter((c) => {
+    if (!c.is_enabled) return false
+
+    // Search console & Bing verification tags are essential for search indexing
+    if (c.type === "gsc" || c.type === "bing") return true
+
+    // Check user cookie preferences if user has expressed consent choices
+    if (consent) {
+      if ((c.type === "ga4" || c.type === "gtm" || c.type === "clarity") && !consent.analytics) {
+        return false
+      }
+      if ((c.type === "meta_pixel" || c.type === "linkedin") && !consent.marketing) {
+        return false
+      }
+    }
+
+    return true
+  })
   if (enabledCodes.length === 0) return null
 
   // 2. Client-side Route Transition Listener (avoid duplicate scripts, dispatch single page_view event)

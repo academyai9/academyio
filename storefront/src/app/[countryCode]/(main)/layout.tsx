@@ -5,6 +5,7 @@ import Footer from "@/components/navigation/Footer"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getStoreTrackingCodes } from "@lib/data/tracking-codes"
 import FrontendTrackingLoader from "@/components/analytics/FrontendTrackingLoader"
+import CookieManager from "@/components/cookies/CookieManager"
 
 // Global fetch timeout patch to protect Next.js page data collection against 300s undici hangs
 if (
@@ -66,6 +67,7 @@ export default async function PageLayout(props: {
       <Navbar countryCode={countryCode} customer={customer} />
       <main className="flex-1">{props.children}</main>
       <Footer countryCode={countryCode} />
+      <CookieManager countryCode={countryCode} />
     </div>
   )
 }

@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /*/dashboard
+Disallow: /*/dashboard/*
+Disallow: /*/account
+Disallow: /*/account/*
+Disallow: /*/checkout
+Disallow: /*/checkout/*
+Disallow: /*/cart
+Disallow: /*/order/*
+Disallow: /*/reset-password
+Disallow: /*/forgot-password
+Disallow: /api/*
+Disallow: /admin/*
+Disallow: /webapp/*
+
+Sitemap: https://www.academyio.com/sitemap.xml

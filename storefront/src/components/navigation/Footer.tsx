@@ -4,6 +4,7 @@ import { Award, ShieldCheck, MapPin } from "lucide-react"
 import { getStoreSocialLinks } from "@lib/data/social-media"
 import { getContactInfo } from "@lib/data/contact"
 import SocialFollowBar from "./SocialFollowBar"
+import OpenCookiePreferencesButton from "@/components/cookies/OpenCookiePreferencesButton"
 
 export default async function Footer({ countryCode = "us" }: { countryCode?: string }) {
   const [socialData, contactInfo] = await Promise.all([
@@ -169,6 +170,11 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
                   Refund Policy
                 </Link>
               </li>
+              <li>
+                <Link href={`/${countryCode}/cookie-policy`} className="hover:text-white transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -187,7 +193,7 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
           }`}
         >
           <p>© {new Date().getFullYear()} AcademyIO LLC. All rights reserved.</p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <Link href={`/${countryCode}/speakers`} className="hover:text-white text-gray-400 transition-colors">
               Faculty Directory
             </Link>
@@ -200,6 +206,12 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
             <Link href={`/${countryCode}/refund-policy`} className="hover:text-white transition-colors">
               Refund Policy
             </Link>
+            <Link href={`/${countryCode}/cookie-policy`} className="hover:text-white transition-colors">
+              Cookie Policy
+            </Link>
+            <OpenCookiePreferencesButton variant="link" className="text-gray-400 hover:text-white transition-colors">
+              Cookie Preferences
+            </OpenCookiePreferencesButton>
           </div>
         </div>
       </div>
