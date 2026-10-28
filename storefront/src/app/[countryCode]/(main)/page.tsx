@@ -5,13 +5,11 @@ import { getWebinars, getStoreSpeakers, SpeakerItem } from "@lib/data/webinars"
 import { getOfficialCategories } from "@lib/data/categories"
 import { getTestimonials } from "@lib/data/testimonials"
 import { getAccreditationOrganizations } from "@lib/data/organizations"
-import { getStoreCreditTypes } from "@lib/data/credits"
 import { getStoreOtherInfo } from "@lib/data/other-info"
 import WebinarCard from "@/components/webinars/WebinarCard"
 import CategoriesSection from "@/components/categories/CategoriesSection"
 import ClientTestimonials from "@/components/testimonials/ClientTestimonials"
 import AccreditationTrustBar from "@/components/accreditation/AccreditationTrustBar"
-import CreditsSection from "@/components/credits/CreditsSection"
 import OtherInfoSection from "@/components/info/OtherInfoSection"
 import HomepageNewsletterSection from "@/components/newsletter/HomepageNewsletterSection"
 
@@ -24,7 +22,6 @@ export default async function HomePage(props: {
     categories,
     testimonials,
     orgsData,
-    creditsData,
     otherInfoData,
     allSpeakers,
   ] = await Promise.all([
@@ -32,7 +29,6 @@ export default async function HomePage(props: {
     getOfficialCategories().catch(() => []),
     getTestimonials({ homepage_only: true }).catch(() => []),
     getAccreditationOrganizations().catch(() => ({ global_enabled: true, organizations: [] })),
-    getStoreCreditTypes().catch(() => ({ global_enabled: true, credit_types: [] })),
     getStoreOtherInfo().catch(() => ({ global_enabled: true, items: [] })),
     getStoreSpeakers({ featured: true }).catch(() => []),
   ])
@@ -211,13 +207,6 @@ export default async function HomePage(props: {
         organizations={orgsData.organizations}
         globalEnabled={orgsData.global_enabled}
         settings={orgsData.settings}
-      />
-
-      {/* Accredited Credits Section */}
-      <CreditsSection
-        creditTypes={creditsData.credit_types}
-        globalEnabled={creditsData.global_enabled}
-        settings={creditsData.settings}
       />
 
       {/* Self-Study Learning Section */}
