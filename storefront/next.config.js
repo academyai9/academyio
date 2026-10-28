@@ -14,6 +14,7 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  compress: true,
   logging: {
     fetches: {
       fullUrl: true,
@@ -26,6 +27,8 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
       {
         protocol: "http",
@@ -72,6 +75,10 @@ const nextConfig = {
         source: "/(.*)",
         headers: [
           {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
             key: "X-Content-Type-Options",
             value: "nosniff",
           },
@@ -80,12 +87,34 @@ const nextConfig = {
             value: "SAMEORIGIN",
           },
           {
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
+          },
+          {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/images/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
           },
         ],
       },

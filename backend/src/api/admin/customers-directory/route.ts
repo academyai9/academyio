@@ -1,10 +1,8 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Pool } from "pg"
+import { getSharedPool } from "../../../utils/db-pool"
 import crypto from "crypto"
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
+const pool = getSharedPool()
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const query = req.query as Record<string, any>

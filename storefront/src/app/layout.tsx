@@ -21,9 +21,9 @@ if (
     }
 
     const controller = new AbortController()
-    const timeoutMs = 4000
+    const timeoutMs = 8000
     const timeoutId = setTimeout(
-      () => controller.abort(new Error("Global fetch timeout (4s)")),
+      () => controller.abort(new Error("Global fetch timeout (8s)")),
       timeoutMs
     )
 

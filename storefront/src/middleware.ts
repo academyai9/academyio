@@ -107,69 +107,74 @@ async function getCountryCode(
 }
 
 /**
- * Middleware to handle region selection and onboarding status.
+ * Optimized high-performance Middleware:
+ * 1. Instantly passes through requests that already contain country code without blocking on backend.
+ * 2. Instantly redirects root "/" or missing country paths to target country without waiting for Render.
+ * 3. Handles /cart -> /checkout redirection seamlessly.
  */
 export async function middleware(request: NextRequest) {
-  let redirectUrl = request.nextUrl.href
+  const pathname = request.nextUrl.pathname
 
-  let response = NextResponse.redirect(redirectUrl, 307)
-
-  let cacheIdCookie = request.cookies.get("_medusa_cache_id")
-
-  let cacheId = cacheIdCookie?.value || crypto.randomUUID()
-
-  const regionMap = await getRegionMap(cacheId)
-
-  const countryCode = regionMap && (await getCountryCode(request, regionMap))
-
-  const urlHasCountryCode =
-    countryCode && request.nextUrl.pathname.split("/")[1].includes(countryCode)
-
-  // Redirect /cart directly to /checkout
+  // 1. Skip static assets, API routes, or file extensions immediately
   if (
-    request.nextUrl.pathname.endsWith("/cart") ||
-    request.nextUrl.pathname.includes("/cart/")
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".")
   ) {
-    const targetCountry = countryCode || DEFAULT_REGION
-    const checkoutUrl = new URL(`/${targetCountry}/checkout`, request.url)
-    const redirectRes = NextResponse.redirect(checkoutUrl, 307)
-    if (!cacheIdCookie) {
-      redirectRes.cookies.set("_medusa_cache_id", cacheId, { maxAge: 60 * 60 * 24 })
-    }
-    return redirectRes
+    return NextResponse.next()
   }
 
-  // if one of the country codes is in the url, return next (setting cookie if needed without extra redirect)
-  if (urlHasCountryCode) {
+  const segments = pathname.split("/").filter(Boolean)
+  const firstSegment = segments[0]?.toLowerCase()
+
+  // 2. Check if URL already has valid country code (e.g. /us or any 2-letter ISO code)
+  const isCountryPath =
+    firstSegment === DEFAULT_REGION || (firstSegment && /^[a-z]{2}$/.test(firstSegment))
+
+  if (isCountryPath) {
+    const country = firstSegment
+
+    // Redirect /cart directly to /checkout
+    if (pathname.endsWith("/cart") || pathname.includes("/cart/")) {
+      const checkoutUrl = new URL(`/${country}/checkout`, request.url)
+      const res = NextResponse.redirect(checkoutUrl, 307)
+      if (!request.cookies.get("_medusa_cache_id")) {
+        res.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
+          maxAge: 60 * 60 * 24,
+        })
+      }
+      return res
+    }
+
+    // Fast-path: URL already has country code, proceed without ANY backend latency!
     const res = NextResponse.next()
-    if (!cacheIdCookie) {
-      res.cookies.set("_medusa_cache_id", cacheId, {
+    if (!request.cookies.get("_medusa_cache_id")) {
+      res.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
         maxAge: 60 * 60 * 24,
       })
     }
     return res
   }
 
-  // check if the url is a static asset
-  if (request.nextUrl.pathname.includes(".")) {
-    return NextResponse.next()
-  }
+  // 3. For root or paths without country prefix, detect country or fallback to DEFAULT_REGION
+  const vercelCountry = request.headers
+    .get("x-vercel-ip-country")
+    ?.toLowerCase()
 
-  const redirectPath =
-    request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname
+  const targetCountry =
+    vercelCountry && /^[a-z]{2}$/.test(vercelCountry)
+      ? vercelCountry
+      : DEFAULT_REGION
 
-  const queryString = request.nextUrl.search ? request.nextUrl.search : ""
+  const redirectPath = pathname === "/" ? "" : pathname
+  const queryString = request.nextUrl.search || ""
+  const redirectUrl = `${request.nextUrl.origin}/${targetCountry}${redirectPath}${queryString}`
 
-  // If no country code is set, we redirect to the relevant region.
-  if (!urlHasCountryCode && countryCode) {
-    redirectUrl = `${request.nextUrl.origin}/${countryCode}${redirectPath}${queryString}`
-    response = NextResponse.redirect(`${redirectUrl}`, 307)
-  } else if (!urlHasCountryCode && !countryCode) {
-    // Handle case where no valid country code exists (empty regions)
-    return new NextResponse(
-      "No valid regions configured. Please set up regions with countries in your Medusa Admin.",
-      { status: 500 }
-    )
+  const response = NextResponse.redirect(redirectUrl, 307)
+  if (!request.cookies.get("_medusa_cache_id")) {
+    response.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
+      maxAge: 60 * 60 * 24,
+    })
   }
 
   return response

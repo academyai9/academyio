@@ -120,23 +120,11 @@ export const getOfficialCategories = async (): Promise<OfficialCategory[]> => {
       }
     }
   } catch (e) {
-    // Fall back to computing counts from getWebinars
-  }
-
-  try {
-    const { webinars } = await getWebinars({ limit: 100 })
-    return OFFICIAL_CATEGORIES.map((def) => {
-      const count = webinars.filter(
-        (w) => w.category?.toLowerCase() === def.name.toLowerCase()
-      ).length
-      return {
-        ...def,
-        webinars_count: count,
-      }
-    })
-  } catch {
+    // If backend is unavailable or timing out, return predefined official categories instantly without cascading delay
     return OFFICIAL_CATEGORIES
   }
+
+  return OFFICIAL_CATEGORIES
 }
 
 export const getOfficialCategoryBySlug = (slug: string): OfficialCategory | undefined => {

@@ -8,6 +8,21 @@ module.exports = defineConfig({
   },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    redisUrl: process.env.REDIS_URL,
+    databaseDriverOptions:
+      process.env.DATABASE_URL?.includes("neon.tech") ||
+      process.env.DATABASE_URL?.includes("sslmode=require")
+        ? {
+            connection: {
+              ssl: { rejectUnauthorized: false },
+            },
+            pool: {
+              min: 2,
+              max: 15,
+              idleTimeoutMillis: 30000,
+            },
+          }
+        : undefined,
     http: {
       storeCors:
         process.env.STORE_CORS ||
