@@ -179,7 +179,9 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
             course_id: isIrs ? "####" : assigned.course_id,
             name: orgMeta?.name || assigned.org_code?.toUpperCase(),
             short_name: orgMeta?.short_name || assigned.org_code?.toUpperCase(),
-            logo_url: orgMeta?.logo_url || `/logos/${assigned.org_code}.svg`,
+            logo_url: (orgMeta?.logo_url && !orgMeta.logo_url.endsWith(".svg"))
+              ? orgMeta.logo_url
+              : `/logos/${assigned.org_code}.png`,
             website_url: orgMeta?.website_url || null,
             alt_text: orgMeta?.alt_text || `${assigned.org_code?.toUpperCase()} Accreditation`,
             description: orgMeta?.description || null,

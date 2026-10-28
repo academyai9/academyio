@@ -733,7 +733,7 @@ export default function OrganizationsAdminPage() {
                       type="text"
                       value={formData.logo_url}
                       onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                      placeholder="Or enter logo URL (e.g. /logos/nasba.svg)"
+                      placeholder="Or enter logo URL (e.g. /logos/nasba.png)"
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-ui-border-base bg-ui-bg-base text-ui-fg-base focus:outline-none focus:border-blue-500"
                     />
                   </div>

@@ -448,12 +448,14 @@ export default function CreditsManagementTab({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {["irs", "nasba", "hrci", "shrm"].map((code) => {
-              const orgMeta = availableOrgs.find((o) => o.code === code) || {
+              const found = availableOrgs.find((o) => o.code === code)
+              const rawLogo = found?.logo_url || `/logos/${code}.png`
+              const orgMeta = {
                 code,
-                name: code.toUpperCase(),
-                short_name: code.toUpperCase(),
-                logo_url: `/logos/${code}.svg`,
-                default_credit_type: code === "irs" ? "CE Credits" : code === "shrm" ? "SHRM PDCs" : "CPE Credits",
+                name: found?.name || code.toUpperCase(),
+                short_name: found?.short_name || code.toUpperCase(),
+                logo_url: rawLogo.endsWith(".svg") ? rawLogo.replace(/\.svg$/, ".png") : rawLogo,
+                default_credit_type: found?.default_credit_type || (code === "irs" ? "CE Credits" : code === "shrm" ? "SHRM PDCs" : "CPE Credits"),
               }
 
               const isAssigned = Boolean(assignedOrgs.find((o) => o.org_code === code))
@@ -563,10 +565,12 @@ export default function CreditsManagementTab({
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {assignedOrgs.map((ao) => {
-                      const orgMeta = availableOrgs.find((o) => o.code === ao.org_code) || {
-                        short_name: ao.org_code.toUpperCase(),
-                        name: ao.org_code.toUpperCase(),
-                        logo_url: `/logos/${ao.org_code}.svg`,
+                      const found = availableOrgs.find((o) => o.code === ao.org_code)
+                      const rawLogo = found?.logo_url || `/logos/${ao.org_code}.png`
+                      const orgMeta = {
+                        short_name: found?.short_name || ao.org_code.toUpperCase(),
+                        name: found?.name || ao.org_code.toUpperCase(),
+                        logo_url: rawLogo.endsWith(".svg") ? rawLogo.replace(/\.svg$/, ".png") : rawLogo,
                       }
                       return (
                         <div

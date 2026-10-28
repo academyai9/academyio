@@ -119,7 +119,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         `, [
           name,
           short_name,
-          body.logo_url?.trim() || "/logos/nasba.svg",
+          body.logo_url?.trim() || "/logos/nasba.png",
           body.website_url ? body.website_url.trim() : null,
           body.alt_text?.trim() || `${short_name} Accreditation`,
           body.description?.trim() || "",
@@ -137,7 +137,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     }
 
     const id = `org_${code}_${Date.now().toString(36)}`
-    const logo_url = body.logo_url?.trim() || "/logos/nasba.svg"
+    const logo_url = body.logo_url?.trim() || "/logos/nasba.png"
     const website_url = body.website_url ? body.website_url.trim() : null
     const alt_text = body.alt_text?.trim() || `${short_name} Accreditation`
     const description = body.description?.trim() || ""

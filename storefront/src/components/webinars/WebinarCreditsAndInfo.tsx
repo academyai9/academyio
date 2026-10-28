@@ -132,7 +132,13 @@ export default function WebinarCreditsAndInfo({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {assignedOrgs.map((org) => {
               const code = org.org_code?.toLowerCase()
-              const logo = org.logo_url || `/logos/${code}.svg`
+              const rawLogo = org.logo_url
+              const logo =
+                rawLogo && !rawLogo.endsWith(".svg")
+                  ? rawLogo
+                  : ["irs", "nasba", "hrci", "shrm"].includes(code || "")
+                  ? `/logos/${code}.png`
+                  : rawLogo || (code ? `/logos/${code}.png` : "")
               const name = org.name || org.short_name || code?.toUpperCase()
 
               return (
@@ -140,12 +146,18 @@ export default function WebinarCreditsAndInfo({
                   key={code}
                   className="rounded-2xl border border-gray-200 dark:border-slate-800 bg-gray-50/60 dark:bg-slate-850 p-4.5 flex items-start gap-4 hover:border-blue-300 dark:hover:border-blue-700 transition-all shadow-2xs"
                 >
-                  <div className="w-24 h-12 bg-white rounded-xl border border-gray-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                  <div className="w-24 h-14 bg-white rounded-xl border border-gray-200 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
                     <img
                       src={logo}
                       alt={org.alt_text || `${name} Logo`}
-                      className="max-w-full max-h-full object-contain"
+                      className="max-w-full max-h-full object-contain filter drop-shadow-2xs"
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget
+                        if (code && !target.src.includes(`${code}.png`)) {
+                          target.src = `/logos/${code}.png`
+                        }
+                      }}
                     />
                   </div>
 

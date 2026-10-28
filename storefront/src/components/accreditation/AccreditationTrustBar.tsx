@@ -38,51 +38,65 @@ export default function AccreditationTrustBar({
 
         {/* Logos Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {organizations.map((org) => (
-            <div
-              key={org.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 flex flex-col justify-between shadow-xs hover:shadow-md transition-all group"
-            >
-              <div className="space-y-4">
-                {/* Logo Image */}
-                <div className="h-16 w-full flex items-center justify-center p-2 rounded-xl bg-gray-50/50 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-700/50">
-                  <img
-                    src={org.logo_url}
-                    alt={org.alt_text}
-                    className="max-h-full max-w-[200px] object-contain transition-transform duration-200 group-hover:scale-105"
-                    loading="lazy"
-                  />
+          {organizations.map((org) => {
+            const code = org.code?.toLowerCase()
+            const logoUrl =
+              org.logo_url && !org.logo_url.endsWith(".svg")
+                ? org.logo_url
+                : `/logos/${code}.png`
+
+            return (
+              <div
+                key={org.id}
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 flex flex-col justify-between shadow-xs hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700/60 transition-all group"
+              >
+                <div className="space-y-4">
+                  {/* Logo Image */}
+                  <div className="h-20 w-full flex items-center justify-center p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-gray-100 dark:border-slate-700/60 shadow-2xs group-hover:scale-102 transition-transform">
+                    <img
+                      src={logoUrl}
+                      alt={org.alt_text || `${org.short_name || org.name} Logo`}
+                      className="max-h-16 max-w-full object-contain filter drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget
+                        if (code && !target.src.includes(`${code}.png`)) {
+                          target.src = `/logos/${code}.png`
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-1.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <span>{org.name}</span>
+                    </h3>
+                    <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-0.5 block">
+                      {org.default_credit_type} Sponsor
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed line-clamp-3">
+                    {org.description}
+                  </p>
                 </div>
 
-                <div>
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <span>{org.name}</span>
-                  </h3>
-                  <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-0.5 block">
-                    {org.default_credit_type} Sponsor
-                  </span>
-                </div>
-
-                <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed line-clamp-3">
-                  {org.description}
-                </p>
+                {org.website_url && (
+                  <div className="pt-3 mt-4 border-t border-gray-100 dark:border-slate-800">
+                    <a
+                      href={org.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <span>Official Registry</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
               </div>
-
-              {org.website_url && (
-                <div className="pt-3 mt-4 border-t border-gray-100 dark:border-slate-800">
-                  <a
-                    href={org.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    <span>Official Registry</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
