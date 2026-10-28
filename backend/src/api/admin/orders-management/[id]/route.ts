@@ -167,3 +167,147 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     })
   }
 }
+
+export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
+  try {
+    const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    const { id } = req.params
+    const body = req.body as {
+      status?: string
+      email?: string
+      notes?: string
+      metadata?: Record<string, any>
+    }
+
+    const orderRes = await pgConnection.raw(
+      `SELECT id, display_id, status, email, metadata FROM "order" WHERE (id = ? OR CAST(display_id AS text) = ?) AND deleted_at IS NULL LIMIT 1`,
+      [id, id]
+    )
+    const order = orderRes.rows?.[0]
+    if (!order) {
+      return res.status(404).json({ message: `Order '${id}' not found` })
+    }
+
+    const validStatuses = ["pending", "completed", "draft", "archived", "canceled", "requires_action"]
+    const newStatus = body.status && validStatuses.includes(body.status) ? body.status : order.status
+    const newEmail = (body.email || order.email || "").trim()
+
+    let currentMetadata = order.metadata || {}
+    if (typeof currentMetadata === "string") {
+      try {
+        currentMetadata = JSON.parse(currentMetadata)
+      } catch {
+        currentMetadata = {}
+      }
+    }
+
+    if (body.notes !== undefined) {
+      currentMetadata.admin_notes = body.notes
+    }
+    if (body.metadata && typeof body.metadata === "object") {
+      currentMetadata = { ...currentMetadata, ...body.metadata }
+    }
+
+    const isCanceling = newStatus === "canceled" && order.status !== "canceled"
+    const isUncanceling = newStatus !== "canceled" && order.status === "canceled"
+
+    await pgConnection.raw(
+      `UPDATE "order"
+       SET status = ?,
+           email = ?,
+           metadata = ?::jsonb,
+           canceled_at = CASE 
+             WHEN ? = true THEN NOW()
+             WHEN ? = true THEN NULL
+             ELSE canceled_at
+           END,
+           updated_at = NOW()
+       WHERE id = ?`,
+      [
+        newStatus,
+        newEmail,
+        JSON.stringify(currentMetadata),
+        isCanceling,
+        isUncanceling,
+        order.id,
+      ]
+    )
+
+    if (newStatus === "completed") {
+      await pgConnection.raw(
+        `UPDATE customer_entitlement SET status = 'active', updated_at = NOW() WHERE order_id = ? AND status != 'active'`,
+        [order.id]
+      )
+    }
+
+    res.json({
+      success: true,
+      message: `Order #${order.display_id} updated successfully.`,
+      order: {
+        id: order.id,
+        display_id: order.display_id,
+        status: newStatus,
+        email: newEmail,
+        metadata: currentMetadata,
+      },
+    })
+  } catch (error: any) {
+    console.error("[Admin Order Update API Error]:", error)
+    res.status(500).json({
+      message: "Failed to update order",
+      error: error.message,
+    })
+  }
+}
+
+export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
+  try {
+    const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    const { id } = req.params
+
+    const orderRes = await pgConnection.raw(
+      `SELECT id, display_id FROM "order" WHERE (id = ? OR CAST(display_id AS text) = ?) AND deleted_at IS NULL LIMIT 1`,
+      [id, id]
+    )
+    const order = orderRes.rows?.[0]
+    if (!order) {
+      return res.status(404).json({ message: `Order '${id}' not found` })
+    }
+
+    const orderId = order.id
+
+    // 1. Clean up child records
+    await pgConnection.raw(`DELETE FROM customer_entitlement WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_email_notification WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_monitoring_incident WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_credit_line WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_transaction WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_item WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_shipping WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_summary WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_change WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_cart WHERE order_id = ?`, [orderId])
+    await pgConnection.raw(`DELETE FROM order_payment_collection WHERE order_id = ?`, [orderId])
+
+    // 2. Soft-delete the order
+    await pgConnection.raw(`UPDATE "order" SET deleted_at = NOW() WHERE id = ?`, [orderId])
+
+    // 3. Attempt hard delete
+    try {
+      await pgConnection.raw(`DELETE FROM "order" WHERE id = ?`, [orderId])
+    } catch (ignoreErr) {
+      // Soft-delete is active
+    }
+
+    res.json({
+      success: true,
+      message: `Order #${order.display_id || orderId} has been successfully deleted.`,
+    })
+  } catch (error: any) {
+    console.error("[Admin Order Delete API Error]:", error)
+    res.status(500).json({
+      message: "Failed to delete order",
+      error: error.message,
+    })
+  }
+}

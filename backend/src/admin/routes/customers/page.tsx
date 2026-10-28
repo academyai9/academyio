@@ -226,10 +226,15 @@ export default function CustomersAdminPage() {
   const [settingPassword, setSettingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  // Delete / Deactivate Customer Modal State
+  // Delete Customer Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteTargetCustomer, setDeleteTargetCustomer] = useState<CustomerSummary | null>(null)
   const [deletingCustomer, setDeletingCustomer] = useState(false)
+
+  // Bulk Selection & Delete State
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([])
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
+  const [deletingBulk, setDeletingBulk] = useState(false)
 
   // Load Customers List
   const loadCustomers = async () => {
@@ -468,7 +473,7 @@ export default function CustomersAdminPage() {
     }
   }
 
-  // Handle Customer Delete / Deactivate
+  // Handle Single Customer Delete
   const handleDeleteCustomer = async () => {
     if (!deleteTargetCustomer) return
     setDeletingCustomer(true)
@@ -481,10 +486,11 @@ export default function CustomersAdminPage() {
       const data = await res.json()
       if (res.ok) {
         setNotification({
-          type: data.deactivated ? "info" : "success",
-          message: data.message,
+          type: "success",
+          message: data.message || "Customer deleted successfully.",
         })
         setIsDeleteModalOpen(false)
+        setSelectedCustomerIds((prev) => prev.filter((id) => id !== deleteTargetCustomer.id))
         if (selectedCustomerId === deleteTargetCustomer.id) {
           setSelectedCustomerId(null)
           setCustomerDetail(null)
@@ -497,6 +503,65 @@ export default function CustomersAdminPage() {
       setNotification({ type: "error", message: e.message || "Network error deleting customer." })
     } finally {
       setDeletingCustomer(false)
+    }
+  }
+
+  // Handle Multi-Select Checkboxes
+  const handleSelectCustomer = (id: string) => {
+    setSelectedCustomerIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAllOnPage = () => {
+    const pageIds = customers.map((c) => c.id)
+    if (pageIds.length === 0) return
+    const allSelected = pageIds.every((id) => selectedCustomerIds.includes(id))
+    if (allSelected) {
+      setSelectedCustomerIds((prev) => prev.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelectedCustomerIds((prev) => Array.from(new Set([...prev, ...pageIds])))
+    }
+  }
+
+  // Handle Bulk Delete Customers
+  const handleBulkDelete = async () => {
+    if (selectedCustomerIds.length === 0) return
+    setDeletingBulk(true)
+    try {
+      const res = await fetch("/admin/customers-directory/bulk-delete", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({ ids: selectedCustomerIds }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setNotification({
+          type: "success",
+          message: data.message || `Successfully deleted ${selectedCustomerIds.length} customer(s).`,
+        })
+        const deletedIds = [...selectedCustomerIds]
+        setSelectedCustomerIds([])
+        setIsBulkDeleteModalOpen(false)
+        if (selectedCustomerId && deletedIds.includes(selectedCustomerId)) {
+          setSelectedCustomerId(null)
+          setCustomerDetail(null)
+        }
+        loadCustomers()
+      } else {
+        setNotification({
+          type: "error",
+          message: data.message || "Failed to delete selected customers.",
+        })
+      }
+    } catch (e: any) {
+      setNotification({
+        type: "error",
+        message: e.message || "Network error during bulk deletion.",
+      })
+    } finally {
+      setDeletingBulk(false)
     }
   }
 
@@ -766,6 +831,35 @@ export default function CustomersAdminPage() {
         </div>
       </div>
 
+      {/* Bulk Action Toolbar */}
+      {selectedCustomerIds.length > 0 && (
+        <div className="flex items-center justify-between p-3.5 px-5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl shadow-sm text-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-rose-800 dark:text-rose-300">
+              {selectedCustomerIds.length} customer{selectedCustomerIds.length > 1 ? "s" : ""} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedCustomerIds([])}
+              className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 underline font-medium"
+            >
+              Clear Selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="danger"
+              size="small"
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="rounded-xl flex items-center gap-1.5"
+            >
+              <Trash className="w-3.5 h-3.5" />
+              Delete Selected ({selectedCustomerIds.length})
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Customer List Table Card */}
       <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
@@ -785,6 +879,15 @@ export default function CustomersAdminPage() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/40 text-neutral-500 dark:text-neutral-400 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={customers.length > 0 && customers.every((c) => selectedCustomerIds.includes(c.id))}
+                    onChange={handleSelectAllOnPage}
+                    className="rounded border-neutral-300 dark:border-neutral-700 text-rose-600 focus:ring-0 cursor-pointer"
+                    title="Select All on Page"
+                  />
+                </th>
                 <th className="py-3 px-4">Customer Name</th>
                 <th className="py-3 px-4">Email Address</th>
                 <th className="py-3 px-4">Phone</th>
@@ -799,14 +902,14 @@ export default function CustomersAdminPage() {
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 text-neutral-800 dark:text-neutral-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-neutral-400">
+                  <td colSpan={10} className="py-16 text-center text-neutral-400">
                     <ArrowPath className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading customer directory...
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-neutral-400">
+                  <td colSpan={10} className="py-16 text-center text-neutral-400">
                     <UserGroup className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     No customers found matching your search or filters.
                   </td>
@@ -814,11 +917,24 @@ export default function CustomersAdminPage() {
               ) : (
                 customers.map((c) => {
                   const initials = getInitials(c.first_name, c.last_name, c.email)
+                  const isSelected = selectedCustomerIds.includes(c.id)
                   return (
                     <tr
                       key={c.id}
-                      className="hover:bg-neutral-50/80 dark:hover:bg-neutral-800/50 transition-colors"
+                      className={`hover:bg-neutral-50/80 dark:hover:bg-neutral-800/50 transition-colors ${
+                        isSelected ? "bg-rose-50/40 dark:bg-rose-950/20" : ""
+                      }`}
                     >
+                      {/* Row Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectCustomer(c.id)}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-rose-600 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Name & Credentials */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
@@ -2220,41 +2336,35 @@ export default function CustomersAdminPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* DELETE / DEACTIVATE CUSTOMER CONFIRMATION MODAL                           */}
+      {/* DELETE SINGLE CUSTOMER CONFIRMATION MODAL                                 */}
       {/* ========================================================================= */}
       {isDeleteModalOpen && deleteTargetCustomer && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800 text-rose-600 dark:text-rose-400">
-              <ExclamationCircle className="w-6 h-6 flex-shrink-0" />
+              <Trash className="w-6 h-6 flex-shrink-0" />
               <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                Confirm Account Action
+                Delete Customer Account
               </h3>
             </div>
 
             <div className="space-y-3 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
               <p>
-                You are about to remove or deactivate customer account:
+                Are you sure you want to permanently delete this customer?
               </p>
               <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 font-semibold text-neutral-900 dark:text-white">
-                {deleteTargetCustomer.full_name} ({deleteTargetCustomer.email})
+                {deleteTargetCustomer.full_name || "Unnamed Customer"} ({deleteTargetCustomer.email})
               </div>
 
-              {deleteTargetCustomer.total_orders > 0 ? (
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 space-y-1">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-amber-600" />
-                    Financial Record Protection Enabled
-                  </span>
-                  <p className="text-[11px] leading-relaxed">
-                    This customer has placed <strong>{deleteTargetCustomer.total_orders} order(s)</strong>. To strictly comply with accounting, tax regulations, and audit requirements, this account will be <strong>deactivated and login disabled</strong> rather than deleted from order transaction history.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-neutral-500 dark:text-neutral-400">
-                  This customer has no order transaction history. Performing this action will remove their credentials and soft-delete their customer profile.
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <ExclamationCircle className="w-4 h-4 text-rose-600" />
+                  Irreversible Action
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  This will remove their profile, passwords, login credentials, and subscriptions. Any past orders will remain securely preserved in your order database as unlinked records.
                 </p>
-              )}
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
@@ -2275,11 +2385,63 @@ export default function CustomersAdminPage() {
                 onClick={handleDeleteCustomer}
                 className="rounded-xl px-5"
               >
-                {deletingCustomer
-                  ? "Processing..."
-                  : deleteTargetCustomer.total_orders > 0
-                  ? "Confirm Deactivate"
-                  : "Confirm Delete"}
+                {deletingCustomer ? "Deleting..." : "Delete Customer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* BULK DELETE CUSTOMERS CONFIRMATION MODAL                                  */}
+      {/* ========================================================================= */}
+      {isBulkDeleteModalOpen && selectedCustomerIds.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800 text-rose-600 dark:text-rose-400">
+              <Trash className="w-6 h-6 flex-shrink-0" />
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+                Confirm Bulk Deletion
+              </h3>
+            </div>
+
+            <div className="space-y-3 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+              <p>
+                You are about to permanently delete <strong>{selectedCustomerIds.length}</strong> selected customer account(s).
+              </p>
+
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <ExclamationCircle className="w-4 h-4 text-rose-600" />
+                  Permanent Removal
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  All login accounts, credentials, and subscriptions for these customers will be deleted immediately. Past order transactions will be unlinked and retained safely for accounting.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={deletingBulk}
+                onClick={handleBulkDelete}
+                className="rounded-xl px-5"
+              >
+                {deletingBulk
+                  ? `Deleting ${selectedCustomerIds.length} Customers...`
+                  : `Delete ${selectedCustomerIds.length} Customers`}
               </Button>
             </div>
           </div>

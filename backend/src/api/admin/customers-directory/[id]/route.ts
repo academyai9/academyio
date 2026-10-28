@@ -329,53 +329,69 @@ export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
       return res.status(404).json({ message: "Customer not found" })
     }
     const customer = custRes.rows[0]
+    const customerEmail = customer.email?.toLowerCase()
 
-    // 1. Check for financial orders to protect business records
-    const ordersRes = await client.query(
-      `SELECT id, display_id FROM "order" WHERE (customer_id = $1 OR LOWER(email) = LOWER($2)) AND deleted_at IS NULL LIMIT 1`,
-      [id, customer.email]
+    await client.query("BEGIN")
+
+    // 1. Unlink existing orders so financial records and accounting history remain safe
+    await client.query(`UPDATE "order" SET customer_id = NULL WHERE customer_id = $1`, [id])
+
+    // 2. Unlink carts
+    await client.query(`UPDATE cart SET customer_id = NULL WHERE customer_id = $1`, [id])
+
+    // 3. Clean up customer specific tables
+    await client.query(
+      `DELETE FROM customer_entitlement WHERE customer_id = $1 OR LOWER(customer_email) = $2`,
+      [id, customerEmail]
+    )
+    await client.query(
+      `DELETE FROM customer_subscription WHERE customer_id = $1 OR LOWER(customer_email) = $2`,
+      [id, customerEmail]
+    )
+    await client.query(
+      `DELETE FROM customer_password_reset WHERE customer_id = $1 OR LOWER(email) = $2`,
+      [id, customerEmail]
+    )
+    await client.query(`DELETE FROM quiz_attempt WHERE customer_id = $1`, [id])
+    await client.query(`DELETE FROM webinar_certificate WHERE customer_id = $1`, [id])
+    await client.query(`DELETE FROM customer_account_holder WHERE customer_id = $1`, [id])
+
+    // 4. Remove provider & auth identities
+    await client.query(
+      `DELETE FROM provider_identity WHERE auth_identity_id IN (
+         SELECT id FROM auth_identity WHERE app_metadata->>'customer_id' = $1
+       )`,
+      [id]
+    )
+    await client.query(
+      `DELETE FROM auth_identity WHERE app_metadata->>'customer_id' = $1`,
+      [id]
     )
 
-    if (ordersRes.rows.length > 0) {
-      // Deactivate instead of hard delete to preserve financial and tax compliance history
-      await client.query(
-        `UPDATE customer 
-         SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{account_status}', '"inactive"'),
-             updated_at = NOW()
-         WHERE id = $1`,
-        [id]
-      )
-
-      const logId = "cal_" + crypto.randomBytes(12).toString("hex")
-      await client.query(
-        `INSERT INTO customer_audit_log (id, customer_id, admin_email, action, details, created_at)
-         VALUES ($1, $2, 'admin@academyio.com', 'STATUS_CHANGED', $3, NOW())`,
-        [logId, id, JSON.stringify({ reason: "Deletion blocked due to existing orders; account deactivated instead." })]
-      )
-
-      return res.status(200).json({
-        success: true,
-        deactivated: true,
-        message: "Customer has existing order transactions. To preserve financial and tax records, the account has been deactivated instead of permanently deleted.",
-      })
+    // 5. Soft-delete and attempt hard-delete
+    await client.query(`UPDATE customer SET deleted_at = NOW() WHERE id = $1`, [id])
+    try {
+      await client.query(`DELETE FROM customer WHERE id = $1`, [id])
+    } catch (ignoreErr) {
+      // Soft-delete is active
     }
 
-    // 2. Safe deletion (soft delete)
-    await client.query(`UPDATE customer SET deleted_at = NOW() WHERE id = $1`, [id])
-    await client.query(`UPDATE auth_identity SET deleted_at = NOW() WHERE app_metadata->>'customer_id' = $1`, [id])
-
+    // 6. Record audit log
     const logId = "cal_" + crypto.randomBytes(12).toString("hex")
     await client.query(
       `INSERT INTO customer_audit_log (id, customer_id, admin_email, action, details, created_at)
        VALUES ($1, $2, 'admin@academyio.com', 'CUSTOMER_DELETED', $3, NOW())`,
-      [logId, id, JSON.stringify({ deleted_at: new Date().toISOString() })]
+      [logId, id, JSON.stringify({ email: customer.email, deleted_at: new Date().toISOString() })]
     )
+
+    await client.query("COMMIT")
 
     res.json({
       success: true,
-      message: `Customer account ${customer.email} has been safely removed.`,
+      message: `Customer account ${customer.email} has been permanently deleted.`,
     })
   } catch (error: any) {
+    await client.query("ROLLBACK")
     console.error("Error in /admin/customers-directory/[id] DELETE:", error)
     res.status(500).json({ message: "Failed to delete customer", error: error.message })
   } finally {

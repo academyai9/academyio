@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  PencilSquare,
+  Trash,
 } from "@medusajs/icons"
 import { Container, Heading, Text, Badge, Button, Input } from "@medusajs/ui"
 import { useAdminTheme, AdminThemeToggle } from "../../components/theme"
@@ -122,6 +124,28 @@ export default function OrdersManagementPage() {
   const [resendingEmail, setResendingEmail] = useState(false)
   const [emailFeedback, setEmailFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // Bulk Selection & Delete State
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
+  const [deletingBulk, setDeletingBulk] = useState(false)
+
+  // Single Order Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteTargetOrder, setDeleteTargetOrder] = useState<OrderManagementItem | null>(null)
+  const [deletingOrder, setDeletingOrder] = useState(false)
+
+  // Edit Order Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editTargetOrder, setEditTargetOrder] = useState<OrderManagementItem | null>(null)
+  const [editForm, setEditForm] = useState({
+    status: "pending",
+    email: "",
+    notes: "",
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [actionNotice, setActionNotice] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
   const fetchOrders = async () => {
     setLoading(true)
     setError(null)
@@ -218,6 +242,142 @@ export default function OrdersManagementPage() {
       setEmailFeedback({ type: "error", text: err.message || "An unexpected error occurred while resending email." })
     } finally {
       setResendingEmail(false)
+    }
+  }
+
+  // Handle Multi-Select Checkboxes for Orders
+  const handleSelectOrder = (id: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAllOrdersOnPage = () => {
+    const pageIds = orders.map((o) => o.id)
+    if (pageIds.length === 0) return
+    const allSelected = pageIds.every((id) => selectedOrderIds.includes(id))
+    if (allSelected) {
+      setSelectedOrderIds((prev) => prev.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...pageIds])))
+    }
+  }
+
+  // Open Edit Order Modal
+  const openEditOrderModal = (ord: OrderManagementItem) => {
+    setEditTargetOrder(ord)
+    setEditError(null)
+    setEditForm({
+      status: ord.order_status || "pending",
+      email: ord.customer_email || "",
+      notes: "",
+    })
+    setIsEditModalOpen(true)
+  }
+
+  // Handle Save Edit Order
+  const handleSaveEditOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTargetOrder) return
+    setSavingEdit(true)
+    setEditError(null)
+    try {
+      const res = await fetch(`/admin/orders-management/${editTargetOrder.id}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify(editForm),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActionNotice({ type: "success", text: data.message || "Order updated successfully." })
+        setIsEditModalOpen(false)
+        fetchOrders()
+        if (selectedOrder && selectedOrder.id === editTargetOrder.id) {
+          openOrderDetails(editTargetOrder)
+        }
+      } else {
+        setEditError(data.message || data.error || "Failed to update order.")
+      }
+    } catch (err: any) {
+      setEditError(err.message || "Network error updating order.")
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  // Open Single Delete Modal
+  const openDeleteOrderModal = (ord: OrderManagementItem) => {
+    setDeleteTargetOrder(ord)
+    setIsDeleteModalOpen(true)
+  }
+
+  // Handle Single Delete Order
+  const handleDeleteOrder = async () => {
+    if (!deleteTargetOrder) return
+    setDeletingOrder(true)
+    try {
+      const res = await fetch(`/admin/orders-management/${deleteTargetOrder.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActionNotice({ type: "success", text: data.message || "Order deleted successfully." })
+        setIsDeleteModalOpen(false)
+        setSelectedOrderIds((prev) => prev.filter((id) => id !== deleteTargetOrder.id))
+        if (selectedOrder && selectedOrder.id === deleteTargetOrder.id) {
+          setSelectedOrder(null)
+        }
+        fetchOrders()
+      } else {
+        setActionNotice({ type: "error", text: data.message || "Failed to delete order." })
+      }
+    } catch (err: any) {
+      setActionNotice({ type: "error", text: err.message || "Network error deleting order." })
+    } finally {
+      setDeletingOrder(false)
+    }
+  }
+
+  // Handle Bulk Delete Orders
+  const handleBulkDeleteOrders = async () => {
+    if (selectedOrderIds.length === 0) return
+    setDeletingBulk(true)
+    try {
+      const res = await fetch("/admin/orders-management/bulk-delete", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({ ids: selectedOrderIds }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActionNotice({
+          type: "success",
+          text: data.message || `Successfully deleted ${selectedOrderIds.length} orders.`,
+        })
+        const deletedIds = [...selectedOrderIds]
+        setSelectedOrderIds([])
+        setIsBulkDeleteModalOpen(false)
+        if (selectedOrder && deletedIds.includes(selectedOrder.id)) {
+          setSelectedOrder(null)
+        }
+        fetchOrders()
+      } else {
+        setActionNotice({
+          type: "error",
+          text: data.message || "Failed to delete selected orders.",
+        })
+      }
+    } catch (err: any) {
+      setActionNotice({
+        type: "error",
+        text: err.message || "Network error during bulk deletion.",
+      })
+    } finally {
+      setDeletingBulk(false)
     }
   }
 
@@ -604,6 +764,54 @@ export default function OrdersManagementPage() {
         </div>
       </div>
 
+      {/* Action Notice Alert */}
+      {actionNotice && (
+        <div
+          className={`p-3.5 px-5 rounded-2xl text-xs font-semibold flex items-center justify-between animate-in fade-in ${
+            actionNotice.type === "success"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+              : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+          }`}
+        >
+          <span>{actionNotice.text}</span>
+          <button
+            onClick={() => setActionNotice(null)}
+            className="text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer ml-3"
+          >
+            <XMark className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Action Toolbar */}
+      {selectedOrderIds.length > 0 && (
+        <div className="flex items-center justify-between p-3.5 px-5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl shadow-xs text-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-rose-800 dark:text-rose-300">
+              {selectedOrderIds.length} order{selectedOrderIds.length > 1 ? "s" : ""} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedOrderIds([])}
+              className="text-ui-fg-muted hover:text-ui-fg-base underline font-medium cursor-pointer"
+            >
+              Clear Selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="danger"
+              size="small"
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="rounded-xl flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash className="w-3.5 h-3.5" />
+              Delete Selected ({selectedOrderIds.length})
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Orders Data Table */}
       <div className="bg-ui-bg-base border border-ui-border-base rounded-3xl overflow-hidden shadow-xs">
         {loading ? (
@@ -621,6 +829,15 @@ export default function OrdersManagementPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-ui-bg-subtle/60 border-b border-ui-border-base text-ui-fg-muted font-bold uppercase tracking-wider text-[10px]">
+                  <th className="py-3.5 px-4 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={orders.length > 0 && orders.every((o) => selectedOrderIds.includes(o.id))}
+                      onChange={handleSelectAllOrdersOnPage}
+                      className="rounded border-ui-border-base text-rose-600 focus:ring-0 cursor-pointer"
+                      title="Select All Orders on Page"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Order ID</th>
                   <th className="py-3.5 px-4">Customer</th>
                   <th className="py-3.5 px-4">Purchased Product & Option</th>
@@ -636,14 +853,29 @@ export default function OrdersManagementPage() {
                 {orders.map((ord) => {
                   const firstItem = ord.items?.[0]
                   const hasMoreItems = (ord.items || []).length > 1
+                  const isSelected = selectedOrderIds.includes(ord.id)
 
                   return (
                     <tr
                       key={ord.id}
                       className={`hover:bg-ui-bg-subtle/50 transition-colors ${
-                        ord.has_attention_flag ? "bg-amber-500/5" : ""
+                        isSelected
+                          ? "bg-rose-50/40 dark:bg-rose-950/20"
+                          : ord.has_attention_flag
+                          ? "bg-amber-500/5"
+                          : ""
                       }`}
                     >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectOrder(ord.id)}
+                          className="rounded border-ui-border-base text-rose-600 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+
                       {/* Order Display ID */}
                       <td className="py-3.5 px-4 font-mono font-bold text-blue-600 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
@@ -748,14 +980,38 @@ export default function OrdersManagementPage() {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => openOrderDetails(ord)}
-                          className="cursor-pointer text-xs"
-                        >
-                          Inspect
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={() => openOrderDetails(ord)}
+                            className="cursor-pointer text-xs"
+                            title="Inspect Order Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline ml-1">Inspect</span>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={() => openEditOrderModal(ord)}
+                            className="cursor-pointer text-xs text-blue-600 hover:text-blue-700"
+                            title="Edit Order"
+                          >
+                            <PencilSquare className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline ml-1">Edit</span>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={() => openDeleteOrderModal(ord)}
+                            className="cursor-pointer text-xs text-rose-600 hover:text-rose-700"
+                            title="Delete Order"
+                          >
+                            <Trash className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline ml-1">Delete</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -1088,7 +1344,25 @@ export default function OrdersManagementPage() {
             )}
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-ui-border-base">
+            <div className="flex items-center justify-between pt-4 border-t border-ui-border-base">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => openEditOrderModal(selectedOrder)}
+                  className="cursor-pointer text-blue-600 hover:text-blue-700 gap-1.5"
+                >
+                  <PencilSquare className="w-3.5 h-3.5" /> Edit Order
+                </Button>
+                <Button
+                  variant="danger"
+                  size="small"
+                  onClick={() => openDeleteOrderModal(selectedOrder)}
+                  className="cursor-pointer gap-1.5"
+                >
+                  <Trash className="w-3.5 h-3.5" /> Delete Order
+                </Button>
+              </div>
               <Button variant="secondary" onClick={() => setSelectedOrder(null)}>
                 Close
               </Button>
@@ -1420,6 +1694,239 @@ export default function OrdersManagementPage() {
                     Download CSV
                   </>
                 )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* EDIT ORDER MODAL                                                          */}
+      {/* ========================================================================= */}
+      {isEditModalOpen && editTargetOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-ui-bg-base border border-ui-border-base rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-ui-border-base pb-4">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                  <PencilSquare className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight text-ui-fg-base">
+                    Edit Order #{editTargetOrder.display_id}
+                  </h3>
+                  <p className="text-ui-fg-muted text-xs font-mono">
+                    ID: {editTargetOrder.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="cursor-pointer text-ui-fg-muted hover:text-ui-fg-base"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
+                <ExclamationCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditOrder} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-ui-fg-muted font-bold uppercase tracking-wider text-[10px] mb-1.5">
+                  Order Status
+                </label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-ui-border-base bg-ui-bg-subtle text-ui-fg-base font-semibold focus:outline-hidden focus:border-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed (Digital Access Active)</option>
+                  <option value="requires_action">Requires Action</option>
+                  <option value="canceled">Canceled</option>
+                  <option value="archived">Archived</option>
+                  <option value="draft">Draft</option>
+                </select>
+                <p className="text-[11px] text-ui-fg-muted mt-1">
+                  Setting to 'Completed' will ensure customer webinar entitlements are activated.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-ui-fg-muted font-bold uppercase tracking-wider text-[10px] mb-1.5">
+                  Customer Order Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="customer@example.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-ui-border-base bg-ui-bg-subtle text-ui-fg-base font-medium focus:outline-hidden focus:border-blue-500"
+                />
+                <p className="text-[11px] text-ui-fg-muted mt-1">
+                  Updates the order recipient address for notifications and confirmations.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-ui-fg-muted font-bold uppercase tracking-wider text-[10px] mb-1.5">
+                  Internal Admin Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  placeholder="Add administrative notes, invoice adjustments, or verification remarks..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-ui-border-base bg-ui-bg-subtle text-ui-fg-base font-medium focus:outline-hidden focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-ui-border-base">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="small"
+                  disabled={savingEdit}
+                  className="rounded-xl px-5 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {savingEdit ? "Saving Changes..." : "Save Order"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE SINGLE ORDER CONFIRMATION MODAL                                    */}
+      {/* ========================================================================= */}
+      {isDeleteModalOpen && deleteTargetOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-ui-bg-base border border-ui-border-base rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-ui-border-base text-rose-600">
+              <Trash className="w-6 h-6 shrink-0" />
+              <h3 className="text-base font-bold text-ui-fg-base">
+                Delete Order #{deleteTargetOrder.display_id}
+              </h3>
+            </div>
+
+            <div className="space-y-3 text-xs text-ui-fg-subtle leading-relaxed">
+              <p>
+                Are you sure you want to permanently delete this order?
+              </p>
+              <div className="p-3.5 rounded-2xl bg-ui-bg-subtle border border-ui-border-base space-y-1 font-medium">
+                <div className="flex justify-between text-ui-fg-base font-bold">
+                  <span>Order #{deleteTargetOrder.display_id}</span>
+                  <span>${deleteTargetOrder.order_total.toFixed(2)} {deleteTargetOrder.currency_code}</span>
+                </div>
+                <div className="text-[11px] text-ui-fg-muted">{deleteTargetOrder.customer_email}</div>
+                <div className="text-[11px] text-ui-fg-muted">
+                  Purchased: {deleteTargetOrder.items?.[0]?.title || "Course Item"}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <ExclamationCircle className="w-4 h-4 text-rose-600" />
+                  Irreversible Action
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  Deleting this order will remove line items, payment records, and any customer digital entitlements generated by this transaction.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-ui-border-base">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="rounded-xl cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={deletingOrder}
+                onClick={handleDeleteOrder}
+                className="rounded-xl px-5 cursor-pointer"
+              >
+                {deletingOrder ? "Deleting..." : "Delete Order"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* BULK DELETE ORDERS CONFIRMATION MODAL                                     */}
+      {/* ========================================================================= */}
+      {isBulkDeleteModalOpen && selectedOrderIds.length > 0 && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-ui-bg-base border border-ui-border-base rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center gap-3 pb-3 border-b border-ui-border-base text-rose-600">
+              <Trash className="w-6 h-6 shrink-0" />
+              <h3 className="text-base font-bold text-ui-fg-base">
+                Confirm Bulk Order Deletion
+              </h3>
+            </div>
+
+            <div className="space-y-3 text-xs text-ui-fg-subtle leading-relaxed">
+              <p>
+                You are about to permanently delete <strong>{selectedOrderIds.length}</strong> selected order(s).
+              </p>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <ExclamationCircle className="w-4 h-4 text-rose-600" />
+                  Permanent Removal
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  All associated line items, financial audit entries, and customer access entitlements for these {selectedOrderIds.length} orders will be permanently erased.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-ui-border-base">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="rounded-xl cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={deletingBulk}
+                onClick={handleBulkDeleteOrders}
+                className="rounded-xl px-5 cursor-pointer"
+              >
+                {deletingBulk
+                  ? `Deleting ${selectedOrderIds.length} Orders...`
+                  : `Delete ${selectedOrderIds.length} Orders`}
               </Button>
             </div>
           </div>
