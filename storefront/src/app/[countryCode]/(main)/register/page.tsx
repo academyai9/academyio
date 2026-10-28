@@ -3,7 +3,27 @@
 import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter, useParams, useSearchParams } from "next/navigation"
-import { User, Mail, Lock, ArrowRight, Eye, EyeOff, UserCheck, ShieldCheck, Phone, Building2, Users, Plus, Trash2 } from "lucide-react"
+import {
+  User,
+  Mail,
+  Lock,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  UserCheck,
+  ShieldCheck,
+  Phone,
+  Building2,
+  Users,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Sparkles,
+  UserPlus,
+  AlertCircle,
+  Award,
+  Check,
+} from "lucide-react"
 import { signup } from "@lib/data/customer"
 import TurnstileWidget from "@components/captcha/TurnstileWidget"
 
@@ -183,299 +203,479 @@ export default function RegisterPage() {
     }
   }
 
+  const loginUrl = `/${countryCode}/login${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ""}`
+
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-xl w-full bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-6 transition-colors">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2 border border-blue-200 dark:border-blue-800">
-            <User className="w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isCheckoutIntent ? "Register to Complete Enrollment" : "Create Professional Account"}
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-slate-400 max-w-sm mx-auto">
-            {isCheckoutIntent
-              ? "Create your verified professional profile to complete your checkout and receive your attendance credentials."
-              : "Join thousands of CPAs, Enrolled Agents, and tax specialists. Immediate access to continuing education tracking and certificates."}
-          </p>
-        </div>
-
-        {/* Checkout Intent Notice */}
-        {isCheckoutIntent && (
-          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2.5">
-            <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span>
-              <strong>One Step Away:</strong> Your webinar selection is safely preserved. Once registered, you will be taken directly to checkout.
-            </span>
-          </div>
-        )}
-
-        {error && (
-          <div className="p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs rounded-xl font-medium leading-relaxed">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
+    <div className="min-h-[88vh] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/60 dark:bg-slate-950/40 transition-colors">
+      <div className="max-w-5xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Left Side: Professional Trust & Platform Value Column (Desktop) */}
+        <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-8 bg-gradient-to-br from-blue-900 via-blue-950 to-slate-950 text-white rounded-3xl border border-blue-800/40 shadow-xl space-y-8 sticky top-28">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Full Name *</label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Jane Doe"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-              />
+            {/* Header Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-semibold mb-5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <span>AcademyIO CPE & CE Platform</span>
             </div>
-          </div>
 
-          {/* Email Address */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Email Address *</label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="jane.doe@firm.com"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-
-          {/* Password (immediately after email) */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Password *</label>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full pl-10 pr-10 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Phone Number (Required) */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Phone Number *</label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. (555) 234-5678"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Company / Firm Name */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">Company / Firm Name</label>
-            <div className="relative">
-              <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Company / Firm Name LLP"
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-
-          {/* Additional Attendee – Enter Email Id (Customer can add multiple emails) */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3 my-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <label className="text-xs font-bold text-gray-900 dark:text-white">
-                  Additional Attendee – Enter Email Id
-                </label>
-              </div>
-              <span className="text-[10px] text-gray-500 dark:text-slate-400 font-normal">Optional</span>
-            </div>
-            <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-tight">
-              Add multiple colleagues or team member email IDs to also receive webinar access links and attendance tracking.
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight text-white mb-3">
+              Fast-Track Your Professional Growth
+            </h2>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Join thousands of CPAs, Enrolled Agents, Controllers, and Tax Specialists earning accredited credits nationwide.
             </p>
-
-            <div className="space-y-2.5 pt-1">
-              {attendeeEmails.map((attEmail, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
-                    <input
-                      type="email"
-                      value={attEmail}
-                      onChange={(e) => handleAttendeeEmailChange(idx, e.target.value)}
-                      placeholder={`Attendee ${idx + 1} Email (e.g. colleague@firm.com)`}
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
-                    />
-                  </div>
-                  {attendeeEmails.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAttendeeEmail(idx)}
-                      title="Remove attendee email"
-                      className="p-2 text-gray-400 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={handleAddAttendeeEmail}
-                className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer pt-0.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Another Attendee Email</span>
-              </button>
-            </div>
           </div>
 
-          {/* Accreditation Information Section */}
-          <div className="pt-3 pb-1 border-t border-b border-gray-100 dark:border-slate-800 space-y-3.5 my-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span>Accreditation Information</span>
-                <span className="text-[10px] font-normal text-gray-400 dark:text-slate-500 lowercase">(optional)</span>
-              </h2>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">IRS & CFP Reporting</span>
-            </div>
-
-            {/* PTIN# & CFP ID# in a 2-column grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* PTIN# */}
+          {/* Key Platform Benefits */}
+          <div className="space-y-4 pt-2 border-t border-blue-800/50">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Award className="w-4 h-4" />
+              </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
-                  PTIN# <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">(Enrolled Agents only)</span>
-                </label>
-                <input
-                  type="text"
-                  value={ptin}
-                  onChange={(e) => handlePtinChange(e.target.value)}
-                  placeholder="P12345678"
-                  maxLength={9}
-                  className="w-full px-3.5 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 text-gray-900 dark:text-white font-mono uppercase tracking-wider placeholder:text-gray-400 dark:placeholder:text-slate-500"
-                />
-                <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
-                  Starts with a P followed by 8 digits (no spaces).
+                <h4 className="text-xs font-bold text-white">Instant CPE Credit Tracking</h4>
+                <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
+                  Automated attendance verification, downloadable certificates, and direct reporting.
                 </p>
               </div>
+            </div>
 
-              {/* CFP ID# */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
-                  CFP ID# <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">(CFP Holders only)</span>
-                </label>
-                <input
-                  type="text"
-                  value={cfpId}
-                  onChange={(e) => setCfpId(e.target.value.trim())}
-                  placeholder="e.g. 294810"
-                  className="w-full px-3.5 py-2.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-gray-900 dark:text-white font-mono placeholder:text-gray-400 dark:placeholder:text-slate-500"
-                />
-                <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
-                  For CFP Designation holders only.
+                <h4 className="text-xs font-bold text-white">Nationally Recognized Faculty</h4>
+                <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
+                  Learn directly from top industry authorities, seasoned attorneys, and former regulators.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">1-Year Full Access to Materials</h4>
+                <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
+                  HD recorded video replay, searchable verbatim transcript, and comprehensive slide decks.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Users className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Firm & Team Multi-Attendee Support</h4>
+                <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
+                  Easily register team members and colleagues under one consolidated account.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Anti-Bot Honeypot Field (invisible to humans) */}
-          <div className="hidden" aria-hidden="true" style={{ display: "none" }}>
-            <label htmlFor="website_url_hp">Leave this field blank</label>
-            <input
-              type="text"
-              id="website_url_hp"
-              name="website_url_hp"
-              tabIndex={-1}
-              autoComplete="off"
-            />
+          {/* Accreditation Logos Showcase */}
+          <div className="pt-4 border-t border-blue-800/50 space-y-2.5">
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">
+              Recognized & Accredited Programs:
+            </span>
+            <div className="flex items-center gap-3 bg-white/10 p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+              <div className="h-7 px-2 bg-white rounded flex items-center justify-center">
+                <img src="/logos/irs.png" alt="IRS Approved CE" className="h-5 object-contain" />
+              </div>
+              <div className="h-7 px-2 bg-white rounded flex items-center justify-center">
+                <img src="/logos/nasba.png" alt="NASBA CPE Sponsor" className="h-5 object-contain" />
+              </div>
+              <div className="h-7 px-2 bg-white rounded flex items-center justify-center">
+                <img src="/logos/hrci.png" alt="HRCI Approved" className="h-5 object-contain" />
+              </div>
+              <div className="h-7 px-2 bg-white rounded flex items-center justify-center">
+                <img src="/logos/shrm.png" alt="SHRM Recertification" className="h-5 object-contain" />
+              </div>
+            </div>
           </div>
 
-          {/* Cloudflare Turnstile Security Verification */}
-          <div className="pt-1">
-            <TurnstileWidget
-              key={captchaResetKey}
-              onVerify={handleCaptchaVerify}
-              onExpire={handleCaptchaExpire}
-              onError={handleCaptchaError}
-            />
+          {/* User Testimonial */}
+          <div className="p-3.5 bg-blue-950/60 rounded-2xl border border-blue-800/60">
+            <p className="text-xs text-slate-200 italic leading-relaxed">
+              "AcademyIO made our team's annual CE compliance seamless. Excellent speakers, timely tax topics, and immediate certificates."
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-[10px] font-bold flex items-center justify-center text-white">
+                SM
+              </div>
+              <span className="text-[11px] font-semibold text-blue-300">Sarah M., CPA & Tax Director</span>
+            </div>
           </div>
-
-          {/* Terms & Conditions Acceptance */}
-          <div className="pt-2">
-            <label className="flex items-start gap-2.5 text-xs text-gray-600 dark:text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
-              />
-              <span>
-                I agree to the{" "}
-                <Link href={`/${countryCode}/terms`} target="_blank" className="text-blue-600 dark:text-blue-400 underline font-medium">
-                  Terms of Service
-                </Link>{" "}
-                and acknowledge the{" "}
-                <Link href={`/${countryCode}/privacy`} target="_blank" className="text-blue-600 dark:text-blue-400 underline font-medium">
-                  Privacy Policy
-                </Link>
-                .
-              </span>
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || !captchaToken}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {loading
-              ? "Creating Account..."
-              : !captchaToken
-              ? "Complete Verification to Continue"
-              : isCheckoutIntent
-              ? "Create Account & Proceed to Checkout"
-              : "Create Professional Account"}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
-
-        <div className="pt-4 border-t border-gray-100 dark:border-slate-800 text-center text-xs text-gray-500 dark:text-slate-400">
-          Already have an account?{" "}
-          <Link
-            href={`/${countryCode}/login${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ""}`}
-            className="font-bold text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Sign In Here
-          </Link>
         </div>
+
+        {/* Right Side: Enhanced Registration Form */}
+        <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm transition-colors space-y-6">
+          
+          {/* Top Bar: Heading + Prominent Sign In Link Right at Top ("login upar bhi") */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                {isCheckoutIntent ? "Register to Complete Enrollment" : "Create Professional Account"}
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                {isCheckoutIntent
+                  ? "Your selected webinar is safely preserved in your cart."
+                  : "Immediate access to accredited webinars, certificates & replays."}
+              </p>
+            </div>
+
+            {/* Prominent Login Option at TOP */}
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="text-xs text-gray-500 dark:text-slate-400 hidden sm:inline">Already a member?</span>
+              <Link
+                href={loginUrl}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 text-xs font-bold border border-blue-200/80 dark:border-blue-800/80 transition-all shadow-xs"
+              >
+                <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Sign In Here</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Segmented Switcher Tabs at the Top */}
+          <div className="grid grid-cols-2 p-1 bg-gray-100 dark:bg-slate-800/70 rounded-xl">
+            <button
+              type="button"
+              className="py-2 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-default"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create Account</span>
+            </button>
+            <Link
+              href={loginUrl}
+              className="py-2 text-xs font-semibold rounded-lg text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white flex items-center justify-center gap-1.5 transition-all hover:bg-gray-200/50 dark:hover:bg-slate-700/50"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Sign In Instead</span>
+            </Link>
+          </div>
+
+          {/* Checkout Intent Notice */}
+          {isCheckoutIntent && (
+            <div className="p-3.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300 text-xs rounded-xl flex items-center gap-2.5 animate-fadeIn">
+              <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>
+                <strong>One Step Away:</strong> Your webinar selection is safely preserved. Once registered, you will be taken directly to checkout.
+              </span>
+            </div>
+          )}
+
+          {/* Error Notice */}
+          {error && (
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs rounded-xl font-medium leading-relaxed flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Registration Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Row 1: Full Name & Phone Number */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Full Name */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. (555) 234-5678"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 font-mono transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Email Address */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                Email Address <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jane.doe@firm.com"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Company / Firm Name */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">
+                  Company / Firm Name
+                </label>
+                <span className="text-[10px] text-gray-400 dark:text-slate-500">Optional</span>
+              </div>
+              <div className="relative">
+                <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Anderson & Associates LLP"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Additional Attendees – Enter Email Id */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <label className="text-xs font-bold text-gray-900 dark:text-white">
+                    Additional Attendee – Enter Email Id
+                  </label>
+                </div>
+                <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                  Optional
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-tight">
+                Add colleagues or team member email IDs to also receive webinar access links and attendance credentials.
+              </p>
+
+              <div className="space-y-2.5 pt-1">
+                {attendeeEmails.map((attEmail, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
+                      <input
+                        type="email"
+                        value={attEmail}
+                        onChange={(e) => handleAttendeeEmailChange(idx, e.target.value)}
+                        placeholder={`Attendee ${idx + 1} Email (e.g. colleague@firm.com)`}
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500"
+                      />
+                    </div>
+                    {attendeeEmails.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttendeeEmail(idx)}
+                        title="Remove attendee email"
+                        className="p-2 text-gray-400 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleAddAttendeeEmail}
+                  className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Another Attendee Email</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Accreditation Information Section */}
+            <div className="p-4 bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>Accreditation Details</span>
+                  <span className="text-[10px] font-normal text-gray-400 dark:text-slate-500 lowercase">(optional)</span>
+                </h3>
+                <span className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold">
+                  IRS & CFP Reporting
+                </span>
+              </div>
+
+              {/* PTIN# & CFP ID# in a 2-column grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* PTIN# */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                    PTIN# <span className="text-[10px] text-purple-600 dark:text-purple-400 font-normal">(Enrolled Agents)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={ptin}
+                    onChange={(e) => handlePtinChange(e.target.value)}
+                    placeholder="P12345678"
+                    maxLength={9}
+                    className="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 text-gray-900 dark:text-white font-mono uppercase tracking-wider placeholder:text-gray-400 dark:placeholder:text-slate-500"
+                  />
+                  <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                    Starts with P followed by 8 digits (no spaces).
+                  </p>
+                </div>
+
+                {/* CFP ID# */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
+                    CFP ID# <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">(CFP Holders)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={cfpId}
+                    onChange={(e) => setCfpId(e.target.value.trim())}
+                    placeholder="e.g. 294810"
+                    className="w-full px-3.5 py-2 text-sm bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-900/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-gray-900 dark:text-white font-mono placeholder:text-gray-400 dark:placeholder:text-slate-500"
+                  />
+                  <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                    For CFP Designation holders only.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Anti-Bot Honeypot Field (invisible to humans) */}
+            <div className="hidden" aria-hidden="true" style={{ display: "none" }}>
+              <label htmlFor="website_url_hp">Leave this field blank</label>
+              <input
+                type="text"
+                id="website_url_hp"
+                name="website_url_hp"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Cloudflare Turnstile Security Verification */}
+            <div className="pt-1">
+              <TurnstileWidget
+                key={captchaResetKey}
+                onVerify={handleCaptchaVerify}
+                onExpire={handleCaptchaExpire}
+                onError={handleCaptchaError}
+              />
+            </div>
+
+            {/* Terms & Conditions Acceptance */}
+            <div className="pt-2">
+              <label className="flex items-start gap-2.5 text-xs text-gray-600 dark:text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer"
+                />
+                <span>
+                  I agree to the{" "}
+                  <Link href={`/${countryCode}/terms`} target="_blank" className="text-blue-600 dark:text-blue-400 underline font-medium">
+                    Terms of Service
+                  </Link>{" "}
+                  and acknowledge the{" "}
+                  <Link href={`/${countryCode}/privacy`} target="_blank" className="text-blue-600 dark:text-blue-400 underline font-medium">
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || !captchaToken}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Creating Account & Securing Profile...</span>
+                </>
+              ) : !captchaToken ? (
+                <span>Complete Security Verification to Continue</span>
+              ) : isCheckoutIntent ? (
+                <>
+                  <span>Create Account & Proceed to Checkout</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              ) : (
+                <>
+                  <span>Create Professional Account</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Bottom Login Reminder */}
+          <div className="pt-4 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs text-gray-500 dark:text-slate-400">
+            <span>Already have an account?</span>
+            <Link
+              href={loginUrl}
+              className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+            >
+              <span>Sign In Here</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
       </div>
     </div>
   )
