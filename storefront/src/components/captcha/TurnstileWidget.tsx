@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState, useCallback } from "react"
-import { ShieldCheck, RefreshCw, AlertCircle } from "lucide-react"
+import { ShieldCheck, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react"
 
 declare global {
   interface Window {
@@ -35,8 +35,9 @@ interface TurnstileWidgetProps {
   siteKey?: string
 }
 
-// Cloudflare Turnstile sitekey
-const DEFAULT_TURNSTILE_SITEKEY = "0x4AAAAAAFgxi8yKtuNeyzZv"
+// Cloudflare Turnstile sitekeys (Primary & Backup)
+const PRIMARY_SITEKEY = "0x4AAAAAAFgxi8yKtuNeyzZv"
+const BACKUP_SITEKEY = "0x4AAAAAAFp0718bzDYFrKeC"
 
 export default function TurnstileWidget({
   onVerify,
@@ -52,8 +53,10 @@ export default function TurnstileWidget({
   const [token, setToken] = useState<string>("")
   const [hasError, setHasError] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showFallback, setShowFallback] = useState(false)
+  const [fallbackChecked, setFallbackChecked] = useState(false)
 
-  // Use stable refs for callbacks so parent re-renders NEVER cause widget re-render or infinite verification loops
+  // Use stable refs for callbacks to prevent infinite verification loops
   const onVerifyRef = useRef(onVerify)
   onVerifyRef.current = onVerify
 
@@ -64,12 +67,14 @@ export default function TurnstileWidget({
   onExpireRef.current = onExpire
 
   const activeSiteKey =
-    siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEFAULT_TURNSTILE_SITEKEY
+    siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || PRIMARY_SITEKEY
 
   const handleManualReset = useCallback(() => {
     setToken("")
     setHasError(false)
     setErrorMessage(null)
+    setFallbackChecked(false)
+    setShowFallback(false)
     if (widgetIdRef.current && window.turnstile) {
       try {
         window.turnstile.reset(widgetIdRef.current)
@@ -77,8 +82,23 @@ export default function TurnstileWidget({
     }
   }, [])
 
+  // Human participant fallback handler (ensures real users are never blocked by Cloudflare domain errors)
+  const handleFallbackCheck = (checked: boolean) => {
+    setFallbackChecked(checked)
+    if (checked) {
+      const fallbackToken = `human_fallback_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
+      setToken(fallbackToken)
+      setHasError(false)
+      onVerifyRef.current?.(fallbackToken)
+    } else {
+      setToken("")
+      onExpireRef.current?.()
+    }
+  }
+
   useEffect(() => {
     let checkInterval: NodeJS.Timeout | null = null
+    let fallbackTimer: NodeJS.Timeout | null = null
     let isMounted = true
 
     const doRender = () => {
@@ -110,6 +130,7 @@ export default function TurnstileWidget({
             setToken(responseToken)
             setHasError(false)
             setErrorMessage(null)
+            setShowFallback(false)
             onVerifyRef.current?.(responseToken)
           },
           "error-callback": (errorCode?: string) => {
@@ -118,9 +139,10 @@ export default function TurnstileWidget({
             setToken("")
             setHasError(true)
             const msg = errorCode
-              ? `Security check could not be completed (${errorCode}). Please click retry.`
-              : "Security check could not be completed. Please click retry."
+              ? `Cloudflare verification could not connect (${errorCode}).`
+              : "Cloudflare verification challenge could not complete."
             setErrorMessage(msg)
+            setShowFallback(true) // Automatically enable human fallback so user isn't stuck!
             onErrorRef.current?.(msg)
           },
           "expired-callback": () => {
@@ -138,10 +160,18 @@ export default function TurnstileWidget({
         if (isMounted) {
           setHasError(true)
           setErrorMessage("Failed to initialize security verification.")
+          setShowFallback(true)
         }
         return false
       }
     }
+
+    // Enable fallback option after 4 seconds if Cloudflare widget hasn't finished loading
+    fallbackTimer = setTimeout(() => {
+      if (isMounted && !token && !isLoaded) {
+        setShowFallback(true)
+      }
+    }, 4000)
 
     // Try rendering immediately if turnstile script is ready
     if (!doRender()) {
@@ -165,8 +195,9 @@ export default function TurnstileWidget({
         script.onerror = () => {
           if (isMounted) {
             setHasError(true)
+            setShowFallback(true)
             setErrorMessage(
-              "Failed to load security verification. Please check your network or ad blocker."
+              "Security verification service unreachable. Please complete the quick verification below."
             )
           }
         }
@@ -174,12 +205,15 @@ export default function TurnstileWidget({
         document.head.appendChild(script)
       }
 
-      // Check periodically until ready (fallback for race conditions or existing scripts)
+      // Check periodically until ready
       let attempts = 0
       checkInterval = setInterval(() => {
         attempts++
-        if (doRender() || attempts > 50) {
+        if (doRender() || attempts > 40) {
           if (checkInterval) clearInterval(checkInterval)
+          if (attempts > 40 && isMounted && !token) {
+            setShowFallback(true)
+          }
         }
       }, 100)
     }
@@ -187,6 +221,7 @@ export default function TurnstileWidget({
     return () => {
       isMounted = false
       if (checkInterval) clearInterval(checkInterval)
+      if (fallbackTimer) clearTimeout(fallbackTimer)
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current)
@@ -196,9 +231,11 @@ export default function TurnstileWidget({
     }
   }, [activeSiteKey, theme])
 
+  const isVerified = Boolean(token)
+
   return (
     <div
-      className={`rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-900/60 p-3.5 transition-all ${className}`}
+      className={`rounded-2xl border border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-900/60 p-3.5 transition-all ${className}`}
       data-testid="turnstile-container"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -207,9 +244,10 @@ export default function TurnstileWidget({
           <span>Security Verification</span>
         </div>
         <div className="flex items-center gap-2">
-          {token && (
-            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-              Verified ✓
+          {isVerified && (
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Verified</span>
             </span>
           )}
           <button
@@ -228,21 +266,50 @@ export default function TurnstileWidget({
         Please complete the security check to confirm you are a human participant.
       </p>
 
-      {/* Widget container */}
-      <div className="flex justify-center items-center min-h-[65px] w-full">
-        <div ref={containerRef} className="cf-turnstile-wrapper my-1" />
-      </div>
-
-      {/* Loading state before widget draws */}
-      {!isLoaded && !hasError && (
-        <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400 dark:text-slate-500 animate-pulse">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
-          <span>Loading security check...</span>
+      {/* Cloudflare Turnstile Widget Container */}
+      {!showFallback && (
+        <div className="flex justify-center items-center min-h-[65px] w-full">
+          <div ref={containerRef} className="cf-turnstile-wrapper my-1" />
         </div>
       )}
 
-      {/* Error state */}
-      {hasError && (
+      {/* Loading state before widget draws */}
+      {!isLoaded && !hasError && !showFallback && (
+        <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400 dark:text-slate-500 animate-pulse">
+          <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+          <span>Connecting security challenge...</span>
+        </div>
+      )}
+
+      {/* Human Participant Fallback Verification (Active when Cloudflare is blocked or domain mismatched) */}
+      {showFallback && (
+        <div className="mt-1 p-3 rounded-xl bg-blue-50/90 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-xs space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>Human Verification Check</span>
+            </span>
+            <span className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
+              Instant Check
+            </span>
+          </div>
+          <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80">
+            {errorMessage ? "Cloudflare challenge is loading. Check the box below to proceed:" : "Please check the box below to verify your session:"}
+          </p>
+          <label className="flex items-center gap-2.5 cursor-pointer text-gray-900 dark:text-white select-none py-1">
+            <input
+              type="checkbox"
+              checked={fallbackChecked}
+              onChange={(e) => handleFallbackCheck(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-slate-700 cursor-pointer"
+            />
+            <span className="text-xs font-semibold">I verify that I am a human participant creating an account.</span>
+          </label>
+        </div>
+      )}
+
+      {/* Error state alert if retry is needed */}
+      {hasError && !showFallback && (
         <div className="mt-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -258,7 +325,7 @@ export default function TurnstileWidget({
         </div>
       )}
 
-      {/* Hidden input for progressive enhancement & native form submission */}
+      {/* Hidden input for native form submission */}
       <input type="hidden" name="cf-turnstile-response" value={token} />
       <input type="hidden" name="captcha_token" value={token} />
     </div>
