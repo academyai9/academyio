@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Modules } from "@medusajs/framework/utils"
+import { Modules, ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import WebinarModuleService from "../../../../modules/webinar/service"
 import { WEBINAR_MODULE } from "../../../../modules/webinar"
 
@@ -163,10 +163,63 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 }
 
 export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
-  const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
-  const { id } = req.params
+  try {
+    const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
+    const productModule = req.scope.resolve(Modules.PRODUCT)
+    const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    const { id } = req.params
 
-  await webinarService.deleteWebinars([id])
+    // 1. Check if webinar exists
+    const [webinar] = await webinarService.listWebinars({ id }).catch(() => [])
+    if (!webinar) {
+      return res.status(404).json({ message: `Webinar with ID "${id}" was not found.` })
+    }
 
-  res.json({ id, object: "webinar", deleted: true })
+    // 2. Cascade delete dependent records in PostgreSQL
+    // To avoid foreign key constraint violations, delete in child-to-parent order
+    await pgConnection.raw(
+      `
+      DELETE FROM quiz_question WHERE quiz_id IN (SELECT id FROM webinar_quiz WHERE webinar_id = ?);
+      DELETE FROM quiz_attempt WHERE webinar_id = ?;
+      DELETE FROM webinar_certificate WHERE webinar_id = ?;
+      DELETE FROM webinar_quiz WHERE webinar_id = ?;
+      DELETE FROM webinar_resource WHERE webinar_id = ?;
+      DELETE FROM webinar_variant_mapping WHERE webinar_id = ?;
+      DELETE FROM customer_entitlement WHERE webinar_id = ?;
+      `,
+      [id, id, id, id, id, id, id]
+    )
+
+    // Clean up webinar_file if table exists
+    try {
+      await pgConnection.raw(`DELETE FROM webinar_file WHERE webinar_id = ?;`, [id])
+    } catch {
+      // Ignore if table does not exist
+    }
+
+    // 3. Delete the webinar row itself
+    await pgConnection.raw(`DELETE FROM webinar WHERE id = ?;`, [id])
+
+    // 4. Clean up Medusa product if linked
+    if (webinar.product_id) {
+      try {
+        await (productModule.deleteProducts as any)([webinar.product_id])
+      } catch (prodErr: any) {
+        console.warn(`[Delete Webinar] Notice: linked product ${webinar.product_id} was not deleted:`, prodErr.message)
+      }
+    }
+
+    return res.status(200).json({
+      id,
+      object: "webinar",
+      deleted: true,
+      message: `Webinar "${webinar.title}" deleted successfully.`
+    })
+  } catch (error: any) {
+    console.error("[Delete Webinar Error]:", error)
+    return res.status(500).json({
+      message: error.message || "Failed to delete webinar due to database constraint.",
+      detail: error.detail || null
+    })
+  }
 }

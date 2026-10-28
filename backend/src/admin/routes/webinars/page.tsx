@@ -79,6 +79,7 @@ export default function WebinarsAdminPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingWebinar, setEditingWebinar] = useState<any | null>(null)
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Quick Add Speaker Modal
   const [isQuickAddSpeakerOpen, setIsQuickAddSpeakerOpen] = useState(false)
@@ -535,19 +536,33 @@ export default function WebinarsAdminPage() {
 
   // Handle Delete Webinar
   const handleDeleteWebinar = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete webinar: "${title}"?`)) return
+    if (!confirm(`Are you sure you want to permanently delete webinar: "${title}"?\n\nThis will remove the webinar, associated resources, quizzes, and variants.`)) return
+    setDeletingId(id)
     try {
       const res = await fetch(`/admin/webinars/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
         credentials: "include",
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        notify("success", "Webinar deleted successfully.")
-        fetchWebinars()
+        notify("success", data.message || `Webinar "${title}" deleted successfully.`)
+        if (selectedWebinarId === id) {
+          setSelectedWebinarId(null)
+          setSelectedWebinar(null)
+        }
+        await fetchWebinars()
+      } else {
+        const errorText = data.message || data.error || `Server returned error (${res.status})`
+        notify("error", `Failed to delete webinar: ${errorText}`)
+        alert(`Failed to delete webinar: ${errorText}`)
       }
     } catch (e: any) {
-      notify("error", e.message)
+      const err = e.message || "Network communication failed."
+      notify("error", `Delete failed: ${err}`)
+      alert(`Delete failed: ${err}`)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -1073,10 +1088,15 @@ export default function WebinarsAdminPage() {
                             variant="danger"
                             size="small"
                             title="Delete webinar"
+                            disabled={deletingId === w.id}
                             onClick={() => handleDeleteWebinar(w.id, w.title)}
-                            className="p-1.5 rounded-xl"
+                            className="p-1.5 rounded-xl disabled:opacity-50"
                           >
-                            <Trash className="w-3.5 h-3.5" />
+                            {deletingId === w.id ? (
+                              <ArrowPath className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash className="w-3.5 h-3.5" />
+                            )}
                           </Button>
                         </div>
                       </td>
@@ -1153,10 +1173,21 @@ export default function WebinarsAdminPage() {
               <Button
                 variant="danger"
                 size="small"
+                disabled={deletingId === selectedWebinar.id}
                 onClick={() => handleDeleteWebinar(selectedWebinar.id, selectedWebinar.title)}
-                className="text-xs rounded-xl"
+                className="text-xs rounded-xl disabled:opacity-50 gap-1.5"
               >
-                <Trash className="w-3.5 h-3.5" />
+                {deletingId === selectedWebinar.id ? (
+                  <>
+                    <ArrowPath className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash className="w-3.5 h-3.5" />
+                    <span>Delete Webinar</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>
