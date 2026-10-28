@@ -22,6 +22,9 @@ import WebinarPurchaseOptions from "@/components/webinars/WebinarPurchaseOptions
 import WebinarCard from "@/components/webinars/WebinarCard"
 import WebinarCreditsAndInfo from "@/components/webinars/WebinarCreditsAndInfo"
 import WebinarPromotionalBanner from "@/components/promotions/WebinarPromotionalBanner"
+import WebinarHeroQuickCTA from "@/components/webinars/WebinarHeroQuickCTA"
+import WebinarQuickNav from "@/components/webinars/WebinarQuickNav"
+import WebinarStickyBottomBar from "@/components/webinars/WebinarStickyBottomBar"
 
 export default async function WebinarDetailsPage(props: {
   params: Promise<{ countryCode: string; slug: string }>
@@ -48,6 +51,16 @@ export default async function WebinarDetailsPage(props: {
     getWebinarSubscriptionStatus(webinar.id, token, customer?.email, customer?.id),
   ])
   const relatedWebinars = allWebinars.filter((w) => w.id !== webinar.id).slice(0, 3)
+
+  const prices = (webinar.variants || [])
+    .map((v) => Number(v.price))
+    .filter((p) => !isNaN(p) && p > 0)
+  const minPrice = prices.length > 0 ? Math.min(...prices) : 29
+  const maxPrice = prices.length > 0 ? Math.max(...prices) : 249
+  const currency = webinar.variants?.[0]?.currency_code?.toUpperCase() || "USD"
+  const isSubscriptionIncluded = Boolean(
+    subscriptionStatus?.has_active_subscription && subscriptionStatus?.is_webinar_included
+  )
 
   const eventDate = new Date(webinar.event_date)
   const formattedDate = eventDate.toLocaleDateString("en-US", {
@@ -130,8 +143,63 @@ export default async function WebinarDetailsPage(props: {
               <span>Duration: {webinar.duration_minutes} Minutes</span>
             </div>
           </div>
+
+          {/* Hero Action & Quick Pricing Bar */}
+          <div className="pt-6 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-slate-900/40 p-4 sm:p-5 rounded-2xl border border-slate-800/60">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">
+                  Format & Tuition:
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-white">
+                  {isSubscriptionIncluded ? (
+                    <span className="text-emerald-400">Included Free with Subscription</span>
+                  ) : (
+                    <>
+                      <span className="text-slate-400 text-sm font-normal mr-1">Starting from</span>
+                      ${minPrice} <span className="text-xs text-slate-400 font-semibold uppercase">{currency}</span>
+                    </>
+                  )}
+                </span>
+                {webinar.cpe_credits > 0 && (
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
+                    {webinar.cpe_credits} CPE Approved
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-300 flex items-center gap-2 flex-wrap">
+                <span className="text-slate-400">Selectable formats:</span>
+                <span className="font-medium text-slate-200">Live Broadcast</span>
+                <span>•</span>
+                <span className="font-medium text-slate-200">Video Replay</span>
+                <span>•</span>
+                <span className="font-medium text-slate-200">Written Transcript</span>
+                <span>•</span>
+                <span className="font-medium text-slate-200">Study PDFs</span>
+              </p>
+            </div>
+
+            <WebinarHeroQuickCTA
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              currency={currency}
+              isSubscriptionIncluded={isSubscriptionIncluded}
+              hasActiveSubscription={subscriptionStatus?.has_active_subscription}
+              isCompleted={webinar.is_completed}
+              hasRecording={Boolean(webinar.recording_ready || webinar.has_recording)}
+            />
+          </div>
         </div>
       </section>
+
+      {/* Sticky Quick-Nav Strip */}
+      <WebinarQuickNav
+        minPrice={minPrice}
+        currency={currency}
+        isSubscriptionIncluded={isSubscriptionIncluded}
+        hasObjectives={Boolean(webinar.learning_objectives && webinar.learning_objectives.length > 0)}
+        hasCredits={Boolean(webinar.cpe_credits || webinar.credit_info)}
+      />
 
       {/* Main Content Grid: Description (Left) + Purchase Options (Right) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -144,8 +212,38 @@ export default async function WebinarDetailsPage(props: {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           {/* Left Column: Course Details */}
           <div className="lg:col-span-7 space-y-10">
+            {/* Mobile Top Pricing Snapshot Card (Jump to purchase) */}
+            <div className="lg:hidden p-5 rounded-2xl bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-slate-50 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 block">
+                  Select Format & Tuition
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-xl font-extrabold text-gray-900 dark:text-white">
+                    {isSubscriptionIncluded ? "Included Free" : `Starting from $${minPrice}`}
+                  </span>
+                  {!isSubscriptionIncluded && (
+                    <span className="text-xs text-gray-500 dark:text-slate-400 uppercase font-semibold">{currency}</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
+                  Choose between Live Broadcast, HD Video Recording, Transcript & PDF Study Guide.
+                </p>
+              </div>
+
+              <WebinarHeroQuickCTA
+                minPrice={minPrice}
+                maxPrice={maxPrice}
+                currency={currency}
+                isSubscriptionIncluded={isSubscriptionIncluded}
+                hasActiveSubscription={subscriptionStatus?.has_active_subscription}
+                isCompleted={webinar.is_completed}
+                hasRecording={Boolean(webinar.recording_ready || webinar.has_recording)}
+              />
+            </div>
+
             {/* About the Instructor */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-5">
+            <div id="instructor" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-5">
               <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">About the Instructor</h2>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                 <div className="flex items-center gap-5">
@@ -177,7 +275,7 @@ export default async function WebinarDetailsPage(props: {
             </div>
 
             {/* Course Overview & Program Description */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
+            <div id="overview" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Course Overview & Program Description</h2>
               <div
                 className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed space-y-3"
@@ -187,7 +285,7 @@ export default async function WebinarDetailsPage(props: {
 
             {/* Learning Objectives */}
             {webinar.learning_objectives && webinar.learning_objectives.length > 0 && (
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
+              <div id="objectives" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Key Learning Objectives</h2>
                 <ul className="space-y-3">
                   {webinar.learning_objectives.map((obj: string, i: number) => (
@@ -217,7 +315,9 @@ export default async function WebinarDetailsPage(props: {
             </div>
 
             {/* Credits and Other Information */}
-            <WebinarCreditsAndInfo webinar={webinar} creditInfo={webinar.credit_info} />
+            <div id="credits" className="scroll-mt-28">
+              <WebinarCreditsAndInfo webinar={webinar} creditInfo={webinar.credit_info} />
+            </div>
 
             {/* Refund & Cancellation Policy */}
             <div className="bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 flex items-start gap-4">
@@ -232,7 +332,7 @@ export default async function WebinarDetailsPage(props: {
           </div>
 
           {/* Right Column: Sticky Purchase Box */}
-          <div className="lg:col-span-5 sticky top-24">
+          <div id="purchase-options" className="lg:col-span-5 sticky top-24 scroll-mt-24 transition-all">
             <WebinarPurchaseOptions
               webinar={webinar}
               countryCode={countryCode}
@@ -255,6 +355,16 @@ export default async function WebinarDetailsPage(props: {
           </div>
         </section>
       )}
+
+      {/* Floating Mobile Sticky Bottom Bar */}
+      <WebinarStickyBottomBar
+        title={webinar.title}
+        minPrice={minPrice}
+        currency={currency}
+        isSubscriptionIncluded={isSubscriptionIncluded}
+        cpeCredits={webinar.cpe_credits}
+        isCompleted={webinar.is_completed}
+      />
     </div>
   )
 }
