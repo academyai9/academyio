@@ -50,13 +50,14 @@ export async function verifyTurnstileToken(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
 
+    // Build verification payload for Cloudflare siteverify API.
+    // NOTE: remoteip is intentionally omitted because frontend requests are processed
+    // via Next.js Server Actions on Vercel connecting to Medusa on Render. Passing Vercel's
+    // datacenter IP as remoteip causes Cloudflare IP-mismatch flags ("Likely human: 0%").
+    // As per official Cloudflare docs: omit remoteip when behind reverse proxies / SSR.
     const payload: Record<string, string> = {
       secret: secretKey.trim(),
       response: token.trim(),
-    }
-
-    if (remoteIp && typeof remoteIp === "string") {
-      payload.remoteip = remoteIp.trim()
     }
 
     const response = await fetch(CLOUDFLARE_SITEVERIFY_URL, {
