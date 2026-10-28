@@ -152,12 +152,6 @@ export default function WebinarCreditsAndInfo({
                       alt={org.alt_text || `${name} Logo`}
                       className="max-w-full max-h-full object-contain filter drop-shadow-2xs"
                       loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget
-                        if (code && !target.src.includes(`${code}.png`)) {
-                          target.src = `/logos/${code}.png`
-                        }
-                      }}
                     />
                   </div>
 

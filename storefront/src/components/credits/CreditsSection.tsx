@@ -70,14 +70,6 @@ export default function CreditsSection({
                           alt={c.organization_short_name || c.name}
                           className="max-h-full max-w-full object-contain filter drop-shadow-2xs"
                           loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget
-                            const orgCode = (c.organization_code || c.code || "").toLowerCase()
-                            if (orgCode.includes("nasba") && !target.src.includes("nasba.png")) target.src = "/logos/nasba.png"
-                            else if (orgCode.includes("irs") && !target.src.includes("irs.png")) target.src = "/logos/irs.png"
-                            else if (orgCode.includes("hrci") && !target.src.includes("hrci.png")) target.src = "/logos/hrci.png"
-                            else if (orgCode.includes("shrm") && !target.src.includes("shrm.png")) target.src = "/logos/shrm.png"
-                          }}
                         />
                       ) : (
                         <span className="text-amber-700 dark:text-amber-300 font-black text-xs">

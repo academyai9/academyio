@@ -20,7 +20,7 @@ export default async function HomePage(props: {
 }) {
   const { countryCode } = await props.params
   const [
-    { webinars },
+    webinarsData,
     categories,
     testimonials,
     orgsData,
@@ -28,17 +28,18 @@ export default async function HomePage(props: {
     otherInfoData,
     allSpeakers,
   ] = await Promise.all([
-    getWebinars({ limit: 6 }),
-    getOfficialCategories(),
-    getTestimonials({ homepage_only: true }),
-    getAccreditationOrganizations(),
-    getStoreCreditTypes(),
-    getStoreOtherInfo(),
-    getStoreSpeakers({ featured: true }),
+    getWebinars({ limit: 6 }).catch(() => ({ webinars: [], count: 0 })),
+    getOfficialCategories().catch(() => []),
+    getTestimonials({ homepage_only: true }).catch(() => []),
+    getAccreditationOrganizations().catch(() => ({ global_enabled: true, organizations: [] })),
+    getStoreCreditTypes().catch(() => ({ global_enabled: true, credit_types: [] })),
+    getStoreOtherInfo().catch(() => ({ global_enabled: true, items: [] })),
+    getStoreSpeakers({ featured: true }).catch(() => []),
   ])
 
-  const upcomingWebinars = webinars.filter((w) => w.is_upcoming).slice(0, 3)
-  const selfStudyWebinars = webinars.filter((w) => w.is_ondemand || w.recording_ready || w.has_recording || w.is_completed).slice(0, 3)
+  const webinars = Array.isArray(webinarsData?.webinars) ? webinarsData.webinars : []
+  const upcomingWebinars = webinars.filter((w) => w?.is_upcoming).slice(0, 3)
+  const selfStudyWebinars = webinars.filter((w) => w && (w.is_ondemand || w.recording_ready || w.has_recording || w.is_completed)).slice(0, 3)
 
   // Featured faculty configured in admin dashboard
   const validFeatured = (allSpeakers || []).filter(
