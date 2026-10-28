@@ -71,10 +71,10 @@ export default async function WebinarDetailsPage(props: {
   })
 
   return (
-    <div className="space-y-12 pb-20">
+    <div className="pb-16 bg-gray-50/50 dark:bg-slate-950 transition-colors">
       {/* Hero Header */}
-      <section className="bg-slate-950 text-white py-12 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto space-y-4">
+      <section className="bg-slate-950 text-white pt-8 pb-7 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto space-y-3.5">
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-xs text-slate-400">
             <Link href={`/${countryCode}`} className="hover:text-white transition-colors">Home</Link>
@@ -85,7 +85,7 @@ export default async function WebinarDetailsPage(props: {
           </nav>
 
           {/* Badges */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/60">
               {webinar.category}
             </span>
@@ -117,19 +117,19 @@ export default async function WebinarDetailsPage(props: {
           </div>
 
           {/* Title */}
-          <h1 className="text-[2.8rem] font-extrabold tracking-tight text-white w-full max-w-none leading-[1.18] break-words">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
             {webinar.title}
           </h1>
 
           {/* Short Description */}
           {webinar.short_description && (
-            <p className="text-slate-300 text-base sm:text-lg w-full max-w-5xl leading-relaxed">
+            <p className="text-slate-300 text-sm sm:text-base max-w-4xl leading-relaxed">
               {webinar.short_description}
             </p>
           )}
 
           {/* Key Event Metadata Row */}
-          <div className="pt-4 flex flex-wrap items-center gap-6 text-xs sm:text-sm text-slate-300 border-t border-slate-800/80">
+          <div className="pt-3 flex flex-wrap items-center gap-5 text-xs sm:text-sm text-slate-300 border-t border-slate-800/80">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-blue-400" />
               <span>{formattedDate}</span>
@@ -145,24 +145,24 @@ export default async function WebinarDetailsPage(props: {
           </div>
 
           {/* Hero Action & Quick Pricing Bar */}
-          <div className="pt-6 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-slate-900/40 p-4 sm:p-5 rounded-2xl border border-slate-800/60">
-            <div className="space-y-1.5">
+          <div className="pt-4 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800/70">
+            <div className="space-y-1">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">
                   Format & Tuition:
                 </span>
-                <span className="text-xl sm:text-2xl font-black text-white">
+                <span className="text-lg sm:text-xl font-black text-white">
                   {isSubscriptionIncluded ? (
                     <span className="text-emerald-400">Included Free with Subscription</span>
                   ) : (
                     <>
-                      <span className="text-slate-400 text-sm font-normal mr-1">Starting from</span>
+                      <span className="text-slate-400 text-xs font-normal mr-1">Starting from</span>
                       ${minPrice} <span className="text-xs text-slate-400 font-semibold uppercase">{currency}</span>
                     </>
                   )}
                 </span>
                 {webinar.cpe_credits > 0 && (
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
+                  <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
                     {webinar.cpe_credits} CPE Approved
                   </span>
                 )}
@@ -202,32 +202,32 @@ export default async function WebinarDetailsPage(props: {
       />
 
       {/* Main Content Grid: Description (Left) + Purchase Options (Right) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-6">
         {activeBanner && (
-          <div className="mb-8">
+          <div className="mb-4 sm:mb-5">
             <WebinarPromotionalBanner banner={activeBanner} />
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Left Column: Course Details */}
-          <div className="lg:col-span-7 space-y-10">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
             {/* Mobile Top Pricing Snapshot Card (Jump to purchase) */}
-            <div className="lg:hidden p-5 rounded-2xl bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-slate-50 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="lg:hidden p-4 rounded-xl bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-slate-50 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 border border-blue-200/80 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 block">
                   Select Format & Tuition
                 </span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-xl font-extrabold text-gray-900 dark:text-white">
+                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">
                     {isSubscriptionIncluded ? "Included Free" : `Starting from $${minPrice}`}
                   </span>
                   {!isSubscriptionIncluded && (
-                    <span className="text-xs text-gray-500 dark:text-slate-400 uppercase font-semibold">{currency}</span>
+                    <span className="text-[11px] text-gray-500 dark:text-slate-400 uppercase font-semibold">{currency}</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
-                  Choose between Live Broadcast, HD Video Recording, Transcript & PDF Study Guide.
+                <p className="text-[11px] text-gray-600 dark:text-slate-400 mt-0.5">
+                  Live Broadcast, HD Video Recording, Transcript & PDF Study Guide.
                 </p>
               </div>
 
@@ -243,19 +243,19 @@ export default async function WebinarDetailsPage(props: {
             </div>
 
             {/* About the Instructor */}
-            <div id="instructor" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-5">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">About the Instructor</h2>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                <div className="flex items-center gap-5">
+            <div id="instructor" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-4">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">About the Instructor</h2>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
                   {webinar.speaker_photo && (
                     <img
                       src={webinar.speaker_photo}
                       alt={webinar.speaker_name}
-                      className="w-20 h-20 rounded-2xl object-cover border-2 border-gray-100 dark:border-slate-700 shadow-sm shrink-0"
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-gray-100 dark:border-slate-700 shadow-xs shrink-0"
                     />
                   )}
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">{webinar.speaker_name}</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-slate-100">{webinar.speaker_name}</h3>
                     <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-0.5">{webinar.speaker_title || "Subject Matter Authority"}</p>
                   </div>
                 </div>
@@ -263,34 +263,34 @@ export default async function WebinarDetailsPage(props: {
                 {webinar.speaker_id && (
                   <Link
                     href={`/${countryCode}/speakers/${webinar.speaker_id}`}
-                    className="shrink-0 px-4 py-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors"
+                    className="shrink-0 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors"
                   >
                     View Faculty Profile →
                   </Link>
                 )}
               </div>
-              <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
                 {webinar.speaker_bio || "Nationally recognized educator with extensive hands-on experience advising clients and training practitioners."}
               </p>
             </div>
 
             {/* Course Overview & Program Description */}
-            <div id="overview" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Course Overview & Program Description</h2>
+            <div id="overview" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Course Overview & Program Description</h2>
               <div
-                className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed space-y-3"
+                className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed space-y-2.5"
                 dangerouslySetInnerHTML={{ __html: webinar.description || "<p>Full program description available.</p>" }}
               />
             </div>
 
             {/* Learning Objectives */}
             {webinar.learning_objectives && webinar.learning_objectives.length > 0 && (
-              <div id="objectives" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Key Learning Objectives</h2>
-                <ul className="space-y-3">
+              <div id="objectives" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Key Learning Objectives</h2>
+                <ul className="space-y-2.5">
                   {webinar.learning_objectives.map((obj: string, i: number) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-gray-700 dark:text-slate-300">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-gray-700 dark:text-slate-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                       <span>{obj}</span>
                     </li>
                   ))}
@@ -299,12 +299,12 @@ export default async function WebinarDetailsPage(props: {
             )}
 
             {/* Target Audience & Prerequisites */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">Target Audience & Qualifications</h2>
-              <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Target Audience & Qualifications</h2>
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
                 {webinar.target_audience || "CPAs, Enrolled Agents (EAs), Tax Attorneys, Controllers, Financial Officers, and Corporate Tax Preparers."}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 text-xs text-gray-600 dark:text-slate-400">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-gray-600 dark:text-slate-400">
                 <div className="p-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl">
                   <strong className="text-gray-900 dark:text-slate-200">Program Level:</strong> Intermediate to Advanced
                 </div>
@@ -320,11 +320,11 @@ export default async function WebinarDetailsPage(props: {
             </div>
 
             {/* Refund & Cancellation Policy */}
-            <div className="bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 flex items-start gap-4">
-              <ShieldAlert className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 flex items-start gap-3.5">
+              <ShieldAlert className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-slate-100">Cancellation & Guarantee Policy</h4>
-                <p className="text-xs text-gray-600 dark:text-slate-400 mt-1 leading-relaxed">
+                <h4 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-slate-100">Cancellation & Guarantee Policy</h4>
+                <p className="text-xs text-gray-600 dark:text-slate-400 mt-0.5 leading-relaxed">
                   {(webinar as any).refund_policy || "Full refunds are granted up to 24 hours prior to the live session broadcast. Self-study recordings provide 1 year of continuous access."}
                 </p>
               </div>
@@ -346,9 +346,9 @@ export default async function WebinarDetailsPage(props: {
 
       {/* Related Webinars Section */}
       {relatedWebinars.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 border-t border-gray-200 dark:border-slate-800">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-6">Related Courses & Masterclasses</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mt-10 border-t border-gray-200 dark:border-slate-800">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 mb-5">Related Courses & Masterclasses</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {relatedWebinars.map((item) => (
               <WebinarCard key={item.id} webinar={item} countryCode={countryCode} />
             ))}
