@@ -43,7 +43,7 @@ interface DisplayOption {
   title: string
   price: number
   currencyCode: string
-  description: string
+  description?: string
   badge?: string
   includedItems: string[]
   isAvailable?: boolean
@@ -106,7 +106,12 @@ export default function WebinarPurchaseOptions({
             title: v.title,
             price: v.price !== undefined ? v.price : 149,
             currencyCode: v.currency_code ? v.currency_code.toUpperCase() : "USD",
-            description: v.description || (isBundle ? "Complete package granting access to all session formats and materials." : "Verified access format."),
+            description:
+              v.description && v.description !== "Verified access format."
+                ? v.description
+                : isBundle
+                ? "All formats included in one package."
+                : "",
             badge: isBundle && isAvailable ? "Best Value" : undefined,
             includedItems: items.length > 0 ? items : ["Full access to session materials"],
             isAvailable,
@@ -272,7 +277,7 @@ export default function WebinarPurchaseOptions({
   const limitReached = Boolean(subStatus?.limit_reached)
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 shadow-sm transition-colors">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4 sm:p-5 shadow-sm transition-colors">
       {/* 1. STATE: REGISTERED / UNLOCKED WITH SUBSCRIPTION OR ORDER */}
       {isRegistered ? (
         <div className="space-y-5">
@@ -527,22 +532,27 @@ export default function WebinarPurchaseOptions({
 
       {/* 5. STANDARD PURCHASE OPTIONS (Shown when not subscribed, or limit reached, or user toggled alternative purchase) */}
       {(!isRegistered && (!hasActiveSub || limitReached || !isIncludedInPlan)) || (showAlternativePurchases) ? (
-        <div className={isRegistered || (hasActiveSub && canRegisterFree) ? "pt-5 border-t border-gray-100 dark:border-slate-800 mt-4" : ""}>
-          <div className="border-b border-gray-100 dark:border-slate-800 pb-4 mb-5">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              {isCompleted ? "Select Self-Study Option" : "Select Purchase Option"}
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+        <div className={isRegistered || (hasActiveSub && canRegisterFree) ? "pt-4 border-t border-gray-100 dark:border-slate-800 mt-3" : ""}>
+          <div className="border-b border-gray-100 dark:border-slate-800 pb-3 mb-3.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                {isCompleted ? "Select Self-Study Option" : "Select Purchase Option"}
+              </h3>
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-900/50">
+                {displayOptions.length} Options
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5 leading-snug">
               {isCompleted
-                ? "Choose from verified self-study recordings, verbatim transcripts, and downloadable materials."
-                : "Choose the access format that fits your continuing professional education requirements."}
+                ? "Choose from self-study recordings, transcripts, and study guides."
+                : "Select individual materials or the complete pass below."}
             </p>
           </div>
 
           {/* Completed & Processing Notice */}
           {isCompleted && !isRecordingReady && (
-            <div className="mb-5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+            <div className="mb-3.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
               <div>
                 <span className="font-bold block">Live Session Concluded</span>
                 <span className="text-amber-800 dark:text-amber-300 text-[11px] block mt-0.5">
@@ -553,7 +563,7 @@ export default function WebinarPurchaseOptions({
           )}
 
           {/* Option Cards */}
-          <div className="space-y-3 mb-6">
+          <div className="space-y-2 mb-4">
             {displayOptions.map((opt) => {
               const isAvailable = opt.isAvailable !== false
               const isSelected = isAvailable && selectedVariantId === opt.variantId
@@ -564,18 +574,18 @@ export default function WebinarPurchaseOptions({
                   onClick={() => {
                     if (isAvailable) setSelectedVariantId(opt.variantId)
                   }}
-                  className={`rounded-xl border p-4 transition-all duration-150 ${
+                  className={`rounded-xl border py-2.5 px-3 sm:px-3.5 transition-all duration-150 ${
                     !isAvailable
                       ? "opacity-60 bg-gray-50 dark:bg-slate-800/40 border-gray-200 dark:border-slate-800 cursor-not-allowed"
                       : isSelected
-                      ? "cursor-pointer border-blue-600 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 ring-1 ring-blue-600 shadow-sm"
+                      ? "cursor-pointer border-blue-600 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 ring-1 ring-blue-600 shadow-xs"
                       : "cursor-pointer border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                        className={`mt-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                           !isAvailable
                             ? "border-gray-300 dark:border-slate-600 bg-gray-200 dark:bg-slate-700"
                             : isSelected
@@ -586,40 +596,45 @@ export default function WebinarPurchaseOptions({
                         {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
 
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-semibold text-sm ${isAvailable ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-500"}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`font-semibold text-xs sm:text-sm ${isAvailable ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-500"}`}>
                             {opt.title}
                           </span>
                           {!isAvailable && opt.unavailableReason ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300">
                               {opt.unavailableReason}
                             </span>
                           ) : opt.badge ? (
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80">
                               {opt.badge}
                             </span>
                           ) : null}
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">{opt.description}</p>
 
-                        {/* Included bullets */}
-                        <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
-                          {opt.includedItems.map((item, idx) => (
-                            <span key={idx} className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
-                              <Check className={`w-3 h-3 ${isAvailable ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-slate-600"}`} />
-                              {item}
-                            </span>
-                          ))}
-                        </div>
+                        {/* Selected option inclusions */}
+                        {isSelected && opt.includedItems && opt.includedItems.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-blue-200/50 dark:border-blue-900/30 flex flex-wrap gap-x-3 gap-y-1">
+                            {opt.includedItems.map((item, idx) => (
+                              <span key={idx} className="flex items-center gap-1 text-[11px] text-gray-600 dark:text-slate-300">
+                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>{item}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="text-right whitespace-nowrap">
-                      <span className={`text-lg font-bold ${isAvailable ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-slate-600"}`}>
-                        ${opt.price}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400 block">{opt.currencyCode}</span>
+                    <div className="text-right shrink-0 whitespace-nowrap pl-2">
+                      <div className="flex items-baseline justify-end gap-1">
+                        <span className={`text-base font-extrabold ${isAvailable ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-slate-600"}`}>
+                          ${opt.price}
+                        </span>
+                        <span className="text-[10px] font-medium text-gray-400 dark:text-slate-500">
+                          {opt.currencyCode}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -628,12 +643,12 @@ export default function WebinarPurchaseOptions({
           </div>
 
           {/* Direct Enrollment Button */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <button
               type="button"
               disabled={loading || !selectedOption || selectedOption.isAvailable === false}
               onClick={handleDirectEnroll}
-              className="w-full py-4 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2.5 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed group"
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed group"
             >
               {loading ? (
                 <>
@@ -648,7 +663,7 @@ export default function WebinarPurchaseOptions({
                   <span>
                     {isCompleted ? "Enroll in Self-Study" : "Register & Enroll Now"} • ${selectedOption.price}
                   </span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform ml-1" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform ml-0.5" />
                 </>
               )}
             </button>
@@ -656,19 +671,19 @@ export default function WebinarPurchaseOptions({
 
           {/* Subscription Banner for non-subscribers */}
           {!hasActiveSub && (
-            <div className="mt-5 p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <span className="flex items-center gap-1.5 font-bold text-xs text-blue-950 dark:text-blue-200">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <div className="mt-3.5 p-2.5 sm:p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between gap-2.5">
+              <div className="min-w-0 pr-1">
+                <span className="flex items-center gap-1.5 font-bold text-xs text-blue-950 dark:text-blue-200 truncate">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                   Want this webinar included free?
                 </span>
-                <span className="text-[11px] text-blue-800 dark:text-blue-300 block">
-                  Subscribe to an AcademyIO Membership from $99/mo to unlock unlimited webinars.
+                <span className="text-[11px] text-blue-800 dark:text-blue-300 block line-clamp-1">
+                  Subscribe from $99/mo to unlock unlimited webinars.
                 </span>
               </div>
               <Link
                 href={`/${countryCode}/subscriptions`}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors"
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors"
               >
                 View Plans
               </Link>
@@ -678,14 +693,14 @@ export default function WebinarPurchaseOptions({
       ) : null}
 
       {/* Trust Badges */}
-      <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-800 flex items-center justify-around text-[11px] text-gray-500 dark:text-slate-400">
+      <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-around text-[11px] text-gray-500 dark:text-slate-400">
         <span className="flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           Instant Dashboard Access
         </span>
         <span className="flex items-center gap-1">
           <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          Verified Certificate Eligible
+          Certificate Eligible
         </span>
       </div>
     </div>
