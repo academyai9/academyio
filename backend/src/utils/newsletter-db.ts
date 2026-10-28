@@ -416,6 +416,75 @@ export async function unsubscribeByToken(
 }
 
 /**
+ * Unsubscribe a user using their email address directly (e.g. from website footer form)
+ */
+export async function unsubscribeByEmail(
+  pgConnection: any,
+  email: string,
+  reason?: string | null,
+  ip?: string | null
+): Promise<{
+  success: boolean
+  alreadyUnsubscribed?: boolean
+  reason?: string
+  subscriber?: NewsletterSubscriber
+}> {
+  await ensureNewsletterTables(pgConnection)
+  if (!email || typeof email !== "string") {
+    return { success: false, reason: "invalid_email" }
+  }
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const findRes = await pgConnection.raw(
+    `SELECT * FROM newsletter_subscribers WHERE LOWER(email) = ? LIMIT 1`,
+    [normalizedEmail]
+  )
+  const subscriber: NewsletterSubscriber | undefined = findRes.rows?.[0]
+
+  if (!subscriber) {
+    // If email is not found, treat as already unsubscribed/not on list to prevent email harvesting
+    return {
+      success: true,
+      alreadyUnsubscribed: true,
+      reason: "not_in_mailing_list",
+    }
+  }
+
+  if (subscriber.status === "unsubscribed") {
+    return { success: true, alreadyUnsubscribed: true, subscriber }
+  }
+
+  const updateRes = await pgConnection.raw(
+    `
+    UPDATE newsletter_subscribers
+    SET 
+      status = 'unsubscribed',
+      unsubscribed_at = NOW(),
+      unsubscribe_reason = COALESCE(?, unsubscribe_reason),
+      updated_at = NOW()
+    WHERE id = ?
+    RETURNING *;
+    `,
+    [reason || "User requested unsubscribe via website footer", subscriber.id]
+  )
+
+  const unsubscribedUser: NewsletterSubscriber = updateRes.rows[0]
+
+  await logSubscriberAudit(pgConnection, {
+    subscriberId: subscriber.id,
+    action: "unsubscribed",
+    actor: "subscriber",
+    details: {
+      reason: reason || "User requested unsubscribe via website form",
+      unsubscribed_at: new Date().toISOString(),
+    },
+    ipAddress: ip || null,
+  })
+
+  return { success: true, subscriber: unsubscribedUser }
+}
+
+/**
  * Get subscriber info by unsubscribe token (for clean confirmation UI)
  */
 export async function getSubscriberByUnsubscribeToken(

@@ -122,7 +122,8 @@ export async function getUnsubscribeInfo(token: string): Promise<{
 }
 
 export async function unsubscribeFromNewsletter(params: {
-  token: string
+  token?: string
+  email?: string
   reason?: string
 }): Promise<{
   success: boolean

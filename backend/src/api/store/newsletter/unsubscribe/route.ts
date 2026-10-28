@@ -1,6 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { unsubscribeByToken } from "../../../../utils/newsletter-db"
+import { unsubscribeByToken, unsubscribeByEmail } from "../../../../utils/newsletter-db"
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
@@ -12,12 +12,18 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         : typeof req.query.token === "string"
         ? req.query.token.trim()
         : ""
+    const email =
+      typeof body.email === "string"
+        ? body.email.trim()
+        : typeof req.query.email === "string"
+        ? req.query.email.trim()
+        : ""
     const reason = typeof body.reason === "string" ? body.reason.trim() : null
 
-    if (!token) {
+    if (!token && !email) {
       return res.status(400).json({
         success: false,
-        error: "Unsubscribe token is required.",
+        error: "Unsubscribe token or email address is required.",
       })
     }
 
@@ -27,12 +33,17 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       req.socket?.remoteAddress ||
       null
 
-    const result = await unsubscribeByToken(pgConnection, token, reason, clientIp)
+    let result: any
+    if (token) {
+      result = await unsubscribeByToken(pgConnection, token, reason, clientIp)
+    } else {
+      result = await unsubscribeByEmail(pgConnection, email, reason, clientIp)
+    }
 
     if (!result.success) {
       return res.status(404).json({
         success: false,
-        error: "Invalid or expired unsubscribe link. If you need assistance, please contact support@academyio.com.",
+        error: "Invalid unsubscribe request. If you need assistance, please contact support@academyio.com.",
       })
     }
 

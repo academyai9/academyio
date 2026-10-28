@@ -191,6 +191,11 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
                   Cookie Policy
                 </Link>
               </li>
+              <li>
+                <Link href={`/${countryCode}/newsletter/unsubscribe`} className="hover:text-white transition-colors">
+                  Unsubscribe
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -224,6 +229,9 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
             </Link>
             <Link href={`/${countryCode}/cookie-policy`} className="hover:text-white transition-colors">
               Cookie Policy
+            </Link>
+            <Link href={`/${countryCode}/newsletter/unsubscribe`} className="hover:text-white transition-colors">
+              Unsubscribe
             </Link>
             <OpenCookiePreferencesButton variant="link" className="text-gray-400 hover:text-white transition-colors">
               Cookie Preferences
