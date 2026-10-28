@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -27,7 +27,7 @@ import {
   getWebinarSubscriptionStatus,
   registerWebinarWithSubscription,
 } from "@lib/data/webinars"
-import { addToCart } from "@lib/data/cart"
+import { addToCart, fastDirectEnroll } from "@lib/data/cart"
 
 interface PurchaseOptionsProps {
   webinar: WebinarItem
@@ -197,6 +197,14 @@ export default function WebinarPurchaseOptions({
     availableOptions[0] ||
     displayOptions[0]
 
+  // Pre-fetch destination routes so page transition happens instantaneously
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      router.prefetch(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
+      router.prefetch(`/${countryCode}/checkout`)
+    }
+  }, [countryCode, router])
+
   const handleDirectEnroll = async () => {
     if (!selectedOption || selectedOption.isAvailable === false) return
 
@@ -205,21 +213,24 @@ export default function WebinarPurchaseOptions({
 
     try {
       if (selectedOption?.variantId && !selectedOption.variantId.startsWith("default_")) {
-        await addToCart({
+        await fastDirectEnroll({
           variantId: selectedOption.variantId,
-          quantity: 1,
           countryCode,
         })
       }
 
       if (!customer) {
-        router.push(`/${countryCode}/login?returnUrl=/${countryCode}/checkout`)
+        router.push(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
       } else {
         router.push(`/${countryCode}/checkout`)
       }
     } catch (err: any) {
       console.error("Direct enroll error:", err)
-      router.push(`/${countryCode}/checkout`)
+      if (!customer) {
+        router.push(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
+      } else {
+        router.push(`/${countryCode}/checkout`)
+      }
     } finally {
       setLoading(false)
     }
@@ -653,7 +664,9 @@ export default function WebinarPurchaseOptions({
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Redirecting to Checkout...</span>
+                  <span>
+                    {!customer ? "Taking you to Registration..." : "Preparing Checkout..."}
+                  </span>
                 </>
               ) : !selectedOption || selectedOption.isAvailable === false ? (
                 <span>Selected Option Unavailable</span>

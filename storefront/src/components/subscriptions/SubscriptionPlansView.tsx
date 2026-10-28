@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Check, ShieldCheck, Zap, Sparkles, CreditCard, ArrowRight, HelpCircle } from "lucide-react"
 import { SubscriptionPlan, CustomerSubscription, subscribeToPlan } from "@lib/data/webinars"
@@ -25,9 +25,15 @@ export default function SubscriptionPlansView({
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      router.prefetch(`/${countryCode}/register`)
+    }
+  }, [countryCode, router])
+
   const handleSubscribe = (plan: SubscriptionPlan) => {
     if (!authToken) {
-      router.push(`/${countryCode}/login?returnUrl=/${countryCode}/subscriptions/checkout?plan_id=${plan.id}`)
+      router.push(`/${countryCode}/register?returnUrl=/${countryCode}/subscriptions/checkout?plan_id=${plan.id}`)
       return
     }
     router.push(`/${countryCode}/subscriptions/checkout?plan_id=${plan.id}`)
