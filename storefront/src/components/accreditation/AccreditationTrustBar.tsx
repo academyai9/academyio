@@ -58,6 +58,7 @@ export default function AccreditationTrustBar({
                       alt={org.alt_text || `${org.short_name || org.name} Logo`}
                       className="max-h-16 max-w-full object-contain filter drop-shadow-2xs transition-transform duration-200 group-hover:scale-105"
                       loading="lazy"
+                      decoding="async"
                     />
                   </div>
 

@@ -251,6 +251,8 @@ export default async function WebinarDetailsPage(props: {
                     <img
                       src={webinar.speaker_photo}
                       alt={webinar.speaker_name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-gray-100 dark:border-slate-700 shadow-xs shrink-0"
                     />
                   )}

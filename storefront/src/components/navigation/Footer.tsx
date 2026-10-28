@@ -43,6 +43,10 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
               <img
                 src="/logos/academyio-logo-white.png"
                 alt="AcademyIO - Empowering Future Minds"
+                width={220}
+                height={40}
+                loading="lazy"
+                decoding="async"
                 className="h-10 w-auto max-w-[220px] object-contain"
               />
             </Link>

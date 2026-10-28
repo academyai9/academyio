@@ -115,11 +115,19 @@ export default function Navbar({ countryCode = "us", customer }: NavbarProps) {
             <img
               src="/logos/academyio-logo.png"
               alt="AcademyIO - Empowering Future Minds"
+              width={230}
+              height={44}
+              fetchPriority="high"
+              decoding="async"
               className="h-8 sm:h-10 md:h-11 w-auto max-w-[145px] sm:max-w-[190px] md:max-w-[230px] object-contain dark:hidden transition-transform duration-200 group-hover:scale-[1.02]"
             />
             <img
               src="/logos/academyio-logo-white.png"
               alt="AcademyIO - Empowering Future Minds"
+              width={230}
+              height={44}
+              fetchPriority="high"
+              decoding="async"
               className="h-8 sm:h-10 md:h-11 w-auto max-w-[145px] sm:max-w-[190px] md:max-w-[230px] object-contain hidden dark:block transition-transform duration-200 group-hover:scale-[1.02]"
             />
           </Link>

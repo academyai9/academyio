@@ -54,6 +54,8 @@ export default function WebinarCard({
           <img
             src={webinar.featured_image}
             alt={webinar.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90 group-hover:opacity-100"
           />
         ) : (
@@ -131,6 +133,8 @@ export default function WebinarCard({
                 <img
                   src={webinar.speaker_photo}
                   alt={webinar.speaker_name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-slate-700"
                 />
               ) : (
@@ -153,6 +157,8 @@ export default function WebinarCard({
                 <img
                   src={webinar.speaker_photo}
                   alt={webinar.speaker_name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-slate-700"
                 />
               ) : (
