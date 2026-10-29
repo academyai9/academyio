@@ -11,7 +11,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       `
       SELECT wf.*, w.title as webinar_title, w.slug as webinar_slug
       FROM webinar_file wf
-      JOIN webinar w ON w.id = wf.webinar_id
+      LEFT JOIN webinar w ON w.id = wf.webinar_id
       WHERE wf.id = $1 AND wf.deleted_at IS NULL;
     `,
       [id]

@@ -2,9 +2,46 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import crypto from "crypto"
 
+const ensureWebinarFileTable = async (pgConnection: any) => {
+  try {
+    await pgConnection.raw(`
+      CREATE TABLE IF NOT EXISTS "webinar_file" (
+        "id" text NOT NULL,
+        "webinar_id" text NOT NULL,
+        "purchase_option" text NOT NULL DEFAULT 'all',
+        "variant_id" text NULL,
+        "material_type" text NOT NULL DEFAULT 'handout',
+        "title" text NOT NULL,
+        "description" text NULL,
+        "s3_key" text NOT NULL,
+        "s3_bucket" text NOT NULL DEFAULT 'academyio-private-webinars',
+        "s3_region" text NOT NULL DEFAULT 'us-east-1',
+        "file_name" text NOT NULL,
+        "file_size" bigint NOT NULL DEFAULT 0,
+        "mime_type" text NOT NULL DEFAULT 'application/octet-stream',
+        "is_active" boolean NOT NULL DEFAULT true,
+        "display_order" integer NOT NULL DEFAULT 0,
+        "upload_status" text NOT NULL DEFAULT 'completed',
+        "metadata" jsonb NULL,
+        "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
+        "deleted_at" timestamptz NULL,
+        CONSTRAINT "webinar_file_pkey" PRIMARY KEY ("id")
+      );
+      CREATE INDEX IF NOT EXISTS "IDX_webinar_file_webinar_id" ON "webinar_file" ("webinar_id") WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS "IDX_webinar_file_purchase_option" ON "webinar_file" ("purchase_option") WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS "IDX_webinar_file_material_type" ON "webinar_file" ("material_type") WHERE deleted_at IS NULL;
+      CREATE INDEX IF NOT EXISTS "IDX_webinar_file_is_active" ON "webinar_file" ("is_active") WHERE deleted_at IS NULL;
+    `)
+  } catch (err: any) {
+    console.warn("Table webinar_file check/create:", err.message)
+  }
+}
+
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    await ensureWebinarFileTable(pgConnection)
 
     const webinarId = req.query.webinar_id as string | undefined
     const purchaseOption = req.query.purchase_option as string | undefined
@@ -36,7 +73,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
         wf.created_at,
         wf.updated_at
       FROM webinar_file wf
-      JOIN webinar w ON w.id = wf.webinar_id
+      LEFT JOIN webinar w ON w.id = wf.webinar_id
       WHERE wf.deleted_at IS NULL
     `
     const params: any[] = []
@@ -95,6 +132,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    await ensureWebinarFileTable(pgConnection)
     const body = req.body as any
 
     const {

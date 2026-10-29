@@ -123,6 +123,7 @@ export default function NewsletterSubscribersPage() {
 
       const res = await fetch(`/admin/newsletter-subscribers?${params.toString()}`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to load subscribers")
       const data = await res.json()
@@ -152,6 +153,7 @@ export default function NewsletterSubscribersPage() {
     try {
       const res = await fetch(`/admin/newsletter-subscribers/${sub.id}`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (res.ok) {
         const data = await res.json()
@@ -168,6 +170,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${sub.id}/resend-verification`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to resend verification")
@@ -191,6 +194,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${unsubscribeTarget.id}/unsubscribe`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ reason: unsubscribeReason || "Unsubscribed by administrator" }),
       })
       const data = await res.json()
@@ -211,6 +215,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${sub.id}/reactivate`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ consent_documentation: "Subscribed / Activated by administrator via Super Admin Panel" }),
       })
       const data = await res.json()
@@ -238,6 +243,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${selectedSubscriber.id}/reactivate`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ consent_documentation: reactivateConsentDoc || "Re-subscribed via Super Admin Panel" }),
       })
       const data = await res.json()
@@ -258,6 +264,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${sub.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to delete subscriber")
@@ -275,6 +282,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch("/admin/newsletter-subscribers", {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({
           email: newEmail,
           first_name: newFirstName,

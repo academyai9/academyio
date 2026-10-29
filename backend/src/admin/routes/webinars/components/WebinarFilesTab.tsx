@@ -83,6 +83,7 @@ export default function WebinarFilesTab({
     try {
       const res = await fetch(`/admin/webinar-files?webinar_id=${webinarId}`, {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to load webinar files")
       const data = await res.json()
@@ -210,6 +211,7 @@ export default function WebinarFilesTab({
             "Content-Type": "application/json",
             ...getAuthHeaders(),
           },
+          credentials: "include",
           body: JSON.stringify({
             webinarId,
             materialType: uploadForm.material_type,
@@ -246,6 +248,7 @@ export default function WebinarFilesTab({
             "Content-Type": "application/json",
             ...getAuthHeaders(),
           },
+          credentials: "include",
           body: JSON.stringify({
             webinar_id: webinarId,
             title: fileTitle,
@@ -315,6 +318,7 @@ export default function WebinarFilesTab({
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify({
           title: editingFile.title,
           description: editingFile.description,
@@ -361,6 +365,7 @@ export default function WebinarFilesTab({
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify({
           webinarId,
           materialType: replacingFile.material_type,
@@ -391,6 +396,7 @@ export default function WebinarFilesTab({
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify({
           s3_key: uploadData.s3_key,
           file_name: uploadData.file_name,
@@ -430,6 +436,7 @@ export default function WebinarFilesTab({
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify({
           is_active: !file.is_active,
         }),
@@ -450,6 +457,7 @@ export default function WebinarFilesTab({
       const res = await fetch(`/admin/webinar-files/${deleteCandidate.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to delete file")
       notify("success", `File "${deleteCandidate.title}" deleted and purged from storage.`)
@@ -469,6 +477,7 @@ export default function WebinarFilesTab({
       const res = await fetch(`/admin/webinar-files/${file.id}/preview`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to generate preview URL")
       const data = await res.json()

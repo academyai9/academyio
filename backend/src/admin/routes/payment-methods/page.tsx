@@ -133,6 +133,7 @@ export default function PaymentMethodsPage() {
     try {
       const res = await fetch("/admin/payment-methods", {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) {
         throw new Error(`Failed to load payment methods: ${res.statusText}`)
@@ -161,6 +162,7 @@ export default function PaymentMethodsPage() {
 
       const res = await fetch(url, {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (res.ok) {
         const data = await res.json()
@@ -204,6 +206,7 @@ export default function PaymentMethodsPage() {
       const res = await fetch(`/admin/payment-methods/${method.id}`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ is_active: nextActive }),
       })
 
@@ -241,6 +244,7 @@ export default function PaymentMethodsPage() {
       const res = await fetch(`/admin/payment-methods/${method.id}/test-connection`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ environment: method.environment }),
       })
 
@@ -337,6 +341,7 @@ export default function PaymentMethodsPage() {
       const res = await fetch(`/admin/payment-methods/${editingMethod.id}`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify(payload),
       })
 

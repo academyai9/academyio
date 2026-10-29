@@ -97,6 +97,7 @@ export default function NewsletterCampaignsPage() {
     try {
       const res = await fetch("/admin/newsletter-campaigns", {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to load campaigns")
       const data = await res.json()
@@ -120,6 +121,7 @@ export default function NewsletterCampaignsPage() {
       const res = await fetch("/admin/newsletter-campaigns", {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({
           title: newTitle,
           subject: newSubject,
@@ -156,6 +158,7 @@ export default function NewsletterCampaignsPage() {
       const res = await fetch(`/admin/newsletter-campaigns/${selectedCampaign.id}/send-test`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify({ test_recipient: testEmailRecipient }),
       })
       const data = await res.json()
@@ -181,6 +184,7 @@ export default function NewsletterCampaignsPage() {
       const res = await fetch(`/admin/newsletter-campaigns/${selectedCampaign.id}/send`, {
         method: "POST",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to dispatch campaign")
@@ -200,6 +204,7 @@ export default function NewsletterCampaignsPage() {
       const res = await fetch(`/admin/newsletter-campaigns/${cmp.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to delete campaign")

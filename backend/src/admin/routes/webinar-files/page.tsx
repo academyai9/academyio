@@ -12,8 +12,14 @@ export const config = defineRouteConfig({
 })
 
 const getAuthHeaders = () => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("medusa_auth_token") : null
-  const headers: Record<string, string> = {}
+  let token: string | null = null
+  if (typeof window !== "undefined") {
+    token =
+      localStorage.getItem("medusa_auth_token") ||
+      localStorage.getItem("_medusa_jwt") ||
+      localStorage.getItem("medusa_token")
+  }
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`
   }
@@ -41,6 +47,7 @@ export default function StandaloneWebinarFilesPage() {
     try {
       const res = await fetch("/admin/webinar-files?webinar_id=all", {
         headers: getAuthHeaders(),
+        credentials: "include",
       })
       if (!res.ok) throw new Error("Failed to load webinars")
       const data = await res.json()
