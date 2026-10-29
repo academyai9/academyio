@@ -33,13 +33,39 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
   const updateData: Record<string, any> = { id }
 
-  if (body.status !== undefined) updateData.status = body.status
+  if (body.status !== undefined) {
+    updateData.status = body.status
+    if (body.status === "active") {
+      updateData.cancel_at_period_end = false
+      updateData.canceled_at = null
+      // If subscription was expired or end date is in past, give 30 days fresh access
+      const now = new Date()
+      const end = new Date(sub.current_period_end)
+      if (end <= now) {
+        const nextMonth = new Date(now)
+        nextMonth.setDate(nextMonth.getDate() + 30)
+        updateData.current_period_end = nextMonth
+      }
+    } else if (body.status === "canceled") {
+      updateData.cancel_at_period_end = true
+      updateData.canceled_at = new Date()
+    }
+  }
+
   if (body.cancel_at_period_end !== undefined)
     updateData.cancel_at_period_end = Boolean(body.cancel_at_period_end)
   if (body.canceled_at !== undefined)
     updateData.canceled_at = body.canceled_at ? new Date(body.canceled_at) : null
   if (body.current_period_end !== undefined)
     updateData.current_period_end = new Date(body.current_period_end)
+  if (body.extend_days) {
+    const days = parseInt(body.extend_days, 10) || 30
+    const base = new Date(sub.current_period_end) > new Date() ? new Date(sub.current_period_end) : new Date()
+    base.setDate(base.getDate() + days)
+    updateData.current_period_end = base
+    updateData.status = "active"
+    updateData.cancel_at_period_end = false
+  }
   if (body.monthly_access_used !== undefined)
     updateData.monthly_access_used = parseInt(body.monthly_access_used)
 

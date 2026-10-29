@@ -7,16 +7,11 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
     const { id } = req.params
     const body = (req.body as any) || {}
-    const consentDocumentation =
-      typeof body.consent_documentation === "string" ? body.consent_documentation.trim() : ""
+    const rawConsent = typeof body.consent_documentation === "string" ? body.consent_documentation.trim() : ""
+    const consentDocumentation = rawConsent && rawConsent.length >= 5
+      ? rawConsent
+      : "Re-subscribed by administrator via Super Admin Panel"
     const adminUser = (req as any).auth_context?.actor_id || "admin"
-
-    if (!consentDocumentation || consentDocumentation.length < 10) {
-      return res.status(400).json({
-        error:
-          "Explicit documented consent is required to reactivate an unsubscribed address (e.g. written email confirmation from the recipient, ticket ID, or verbal opt-in note).",
-      })
-    }
 
     const updated = await reactivateSubscriberAdmin(pgConnection, id, consentDocumentation, adminUser)
 

@@ -99,6 +99,8 @@ export default function NewsletterSubscribersPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showReactivateModal, setShowReactivateModal] = useState(false)
+  const [unsubscribeTarget, setUnsubscribeTarget] = useState<Subscriber | null>(null)
+  const [unsubscribeReason, setUnsubscribeReason] = useState("Unsubscribed by administrator via Super Admin Panel")
   const [selectedSubscriber, setSelectedSubscriber] = useState<Subscriber | null>(null)
   const [subscriberLogs, setSubscriberLogs] = useState<AuditLog[]>([])
 
@@ -106,8 +108,8 @@ export default function NewsletterSubscribersPage() {
   const [newEmail, setNewEmail] = useState("")
   const [newFirstName, setNewFirstName] = useState("")
   const [newStatus, setNewStatus] = useState<"active" | "pending">("active")
-  const [newConsentDoc, setNewConsentDoc] = useState("")
-  const [reactivateConsentDoc, setReactivateConsentDoc] = useState("")
+  const [newConsentDoc, setNewConsentDoc] = useState("Administrator manual opt-in")
+  const [reactivateConsentDoc, setReactivateConsentDoc] = useState("Re-subscribed via Super Admin Panel")
   const [submitting, setSubmitting] = useState(false)
 
   const fetchSubscribers = async () => {
@@ -176,28 +178,55 @@ export default function NewsletterSubscribersPage() {
     }
   }
 
-  const handleUnsubscribe = async (sub: Subscriber) => {
-    const reason = prompt(`Enter reason for unsubscribing ${sub.email}:`, "Unsubscribed by administrator")
-    if (reason === null) return
+  const handleOpenUnsubscribe = (sub: Subscriber) => {
+    setUnsubscribeTarget(sub)
+    setUnsubscribeReason("Unsubscribed by administrator via Super Admin Panel")
+  }
 
+  const handleConfirmUnsubscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!unsubscribeTarget) return
+    setSubmitting(true)
     try {
-      const res = await fetch(`/admin/newsletter-subscribers/${sub.id}/unsubscribe`, {
+      const res = await fetch(`/admin/newsletter-subscribers/${unsubscribeTarget.id}/unsubscribe`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason: unsubscribeReason || "Unsubscribed by administrator" }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to unsubscribe subscriber")
-      setAlert({ type: "success", message: `Subscriber ${sub.email} has been unsubscribed and suppressed.` })
+      setAlert({ type: "success", message: `Subscriber ${unsubscribeTarget.email} has been unsubscribed and suppressed.` })
+      setUnsubscribeTarget(null)
       fetchSubscribers()
     } catch (err: any) {
       setAlert({ type: "error", message: err.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleInstantSubscribe = async (sub: Subscriber) => {
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/admin/newsletter-subscribers/${sub.id}/reactivate`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ consent_documentation: "Subscribed / Activated by administrator via Super Admin Panel" }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to subscribe/activate")
+      setAlert({ type: "success", message: `Subscriber ${sub.email} is now Subscribed & Active!` })
+      fetchSubscribers()
+    } catch (err: any) {
+      setAlert({ type: "error", message: err.message })
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleOpenReactivate = (sub: Subscriber) => {
     setSelectedSubscriber(sub)
-    setReactivateConsentDoc("")
+    setReactivateConsentDoc("Re-subscribed via Super Admin Panel")
     setShowReactivateModal(true)
   }
 
@@ -209,7 +238,7 @@ export default function NewsletterSubscribersPage() {
       const res = await fetch(`/admin/newsletter-subscribers/${selectedSubscriber.id}/reactivate`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ consent_documentation: reactivateConsentDoc }),
+        body: JSON.stringify({ consent_documentation: reactivateConsentDoc || "Re-subscribed via Super Admin Panel" }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to reactivate subscriber")
@@ -501,6 +530,16 @@ export default function NewsletterSubscribersPage() {
                           <>
                             <button
                               type="button"
+                              onClick={() => handleInstantSubscribe(sub)}
+                              disabled={submitting}
+                              className="px-2 py-1 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                              title="Directly activate and confirm subscription"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Subscribe</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleResendVerification(sub)}
                               className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors"
                               title="Resend Verification Email"
@@ -521,22 +560,37 @@ export default function NewsletterSubscribersPage() {
                         {sub.status === "active" && (
                           <button
                             type="button"
-                            onClick={() => handleUnsubscribe(sub)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                            onClick={() => handleOpenUnsubscribe(sub)}
+                            disabled={submitting}
+                            className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors flex items-center gap-1"
                             title="Unsubscribe Subscriber"
                           >
-                            <XMark className="w-4 h-4" />
+                            <XMark className="w-3.5 h-3.5" />
+                            <span>Unsubscribe</span>
                           </button>
                         )}
 
-                        {sub.status === "unsubscribed" && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenReactivate(sub)}
-                            className="px-2 py-1 rounded-md text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"
-                          >
-                            Reactivate
-                          </button>
+                        {(sub.status === "unsubscribed" || sub.status === "bounced" || sub.status === "suppressed") && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleInstantSubscribe(sub)}
+                              disabled={submitting}
+                              className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-1"
+                              title="1-Click Subscribe / Reactivate"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Subscribe</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenReactivate(sub)}
+                              className="px-2 py-1 rounded-md text-[11px] font-medium bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                              title="Reactivate with Custom Consent Record"
+                            >
+                              Consent...
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -645,6 +699,71 @@ export default function NewsletterSubscribersPage() {
                 </Button>
                 <Button type="submit" variant="primary" size="small" disabled={submitting} className="bg-blue-600 text-white">
                   {submitting ? "Saving..." : "Add Subscriber"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Unsubscribe Subscriber Modal */}
+      {unsubscribeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3">
+              <Heading level="h2" className="text-lg font-bold text-rose-600 flex items-center gap-2">
+                <XMark className="w-5 h-5" />
+                <span>Unsubscribe Subscriber</span>
+              </Heading>
+              <button
+                type="button"
+                onClick={() => setUnsubscribeTarget(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to unsubscribe <strong>{unsubscribeTarget.email}</strong> from all marketing and webinar newsletters?
+            </p>
+
+            <form onSubmit={handleConfirmUnsubscribe} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-gray-700 dark:text-slate-300">
+                  Unsubscribe Reason / Audit Note
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={unsubscribeReason}
+                  onChange={(e) => setUnsubscribeReason(e.target.value)}
+                  placeholder="e.g. Unsubscribed by administrator upon customer request"
+                  className="w-full p-2.5 rounded-xl border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-xs"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
+                This recipient will be immediately moved to <strong>Unsubscribed</strong> status and suppressed from all outgoing marketing broadcasts until re-subscribed.
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setUnsubscribeTarget(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="small"
+                  disabled={submitting}
+                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  {submitting ? "Unsubscribing..." : "Unsubscribe Now"}
                 </Button>
               </div>
             </form>
