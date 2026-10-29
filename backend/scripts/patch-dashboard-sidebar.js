@@ -55,53 +55,6 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     icon: /* @__PURE__ */ jsx16(SquaresPlus, {})
   };
 
-  const ordersItem = {
-    to: "/orders-management",
-    label: "Orders",
-    icon: /* @__PURE__ */ jsx16(ShoppingCart, {}),
-    items: [
-      { label: "Orders Hub", to: "/orders-management" },
-      { label: "Order Monitoring", to: "/order-monitoring" },
-      { label: "Payment Methods", to: "/payment-methods" },
-      { label: "Subscriptions & Plans", to: "/subscriptions" },
-      { label: "Active Subscribers", to: "/subscriptions?tab=subscribers" }
-    ]
-  };
-
-  const customersItem = {
-    to: "/customers",
-    label: "Customers",
-    icon: /* @__PURE__ */ jsx16(Users, {}),
-    items: [
-      { label: "Customer Directory", to: "/customers" },
-      { label: "Membership Subscribers", to: "/subscriptions?tab=subscribers" },
-      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
-      { label: "Registrations & Access", to: "/entitlements" },
-      { label: "Customer Groups", to: "/customer-groups" }
-    ]
-  };
-
-  const subscribersItem = {
-    to: "/subscriptions?tab=subscribers",
-    label: "Subscribers",
-    icon: findExt("/subscriptions")?.icon || /* @__PURE__ */ jsx16(Users, {}),
-    items: [
-      { label: "Membership Subscribers", to: "/subscriptions?tab=subscribers" },
-      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
-      { label: "Subscription Plans & Tiers", to: "/subscriptions" }
-    ]
-  };
-
-  const newsletterItem = {
-    to: "/newsletter-subscribers",
-    label: "Newsletter",
-    icon: findExt("/newsletter-subscribers")?.icon || findExt("/newsletter-campaigns")?.icon || /* @__PURE__ */ jsx16(SquaresPlus, {}),
-    items: [
-      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
-      { label: "Newsletter Campaigns", to: "/newsletter-campaigns" }
-    ]
-  };
-
   const webinarsItem = {
     to: "/webinars",
     label: "Webinars & Courses",
@@ -116,13 +69,53 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     ]
   };
 
+  const ordersItem = {
+    to: "/orders-management",
+    label: "Orders & Billing",
+    icon: /* @__PURE__ */ jsx16(ShoppingCart, {}),
+    items: [
+      { label: "Orders Hub", to: "/orders-management" },
+      { label: "Order Monitoring", to: "/order-monitoring" },
+      { label: "Payment Methods", to: "/payment-methods" }
+    ]
+  };
+
+  const customersItem = {
+    to: "/customers",
+    label: "Customers",
+    icon: /* @__PURE__ */ jsx16(Users, {}),
+    items: [
+      { label: "Customer Directory", to: "/customers" },
+      { label: "Registrations & Access", to: "/entitlements" },
+      { label: "Customer Groups", to: "/customer-groups" }
+    ]
+  };
+
+  const membershipsItem = {
+    to: "/subscriptions",
+    label: "Membership Subscriptions",
+    icon: findExt("/subscriptions")?.icon || /* @__PURE__ */ jsx16(ShoppingCart, {}),
+    items: [
+      { label: "Member Subscribers", to: "/subscriptions?tab=subscribers" },
+      { label: "Subscription Plans & Tiers", to: "/subscriptions" }
+    ]
+  };
+
+  const newsletterItem = {
+    to: "/newsletter-subscribers",
+    label: "Newsletter & Email",
+    icon: findExt("/newsletter-subscribers")?.icon || findExt("/newsletter-campaigns")?.icon || /* @__PURE__ */ jsx16(SquaresPlus, {}),
+    items: [
+      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
+      { label: "Broadcast Campaigns", to: "/newsletter-campaigns" }
+    ]
+  };
+
   const marketingItem = {
     to: "/promotions",
     label: "Content & Marketing",
     icon: findExt("/promotions")?.icon || /* @__PURE__ */ jsx16(SquaresPlus, {}),
     items: [
-      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
-      { label: "Newsletter Campaigns", to: "/newsletter-campaigns" },
       { label: "Promotions & Banners", to: "/promotions" },
       { label: "Regulatory Bodies", to: "/organizations" },
       { label: "Credits Management", to: "/credits" },
@@ -155,11 +148,11 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
 
   const finalNavItems = [
     overviewItem,
+    webinarsItem,
     ordersItem,
     customersItem,
-    subscribersItem,
+    membershipsItem,
     newsletterItem,
-    webinarsItem,
     marketingItem,
     policiesItem,
     settingsItem

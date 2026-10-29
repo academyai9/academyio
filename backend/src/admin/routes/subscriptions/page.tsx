@@ -516,7 +516,7 @@ export default function SubscriptionsAdminPage() {
           <div>
             <div className="flex items-center gap-2">
               <Heading level="h1" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-neutral-100">
-                Subscription & Membership Tiers
+                Membership Subscriptions
               </Heading>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 Recurring Billing
@@ -694,7 +694,7 @@ export default function SubscriptionsAdminPage() {
           }`}
         >
           <UserGroup className="w-4 h-4" />
-          Active Subscribers ({activeSubsCount})
+          Enrolled Member Subscribers ({activeSubsCount})
         </button>
       </div>
 
