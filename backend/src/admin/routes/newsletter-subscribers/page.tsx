@@ -16,6 +16,7 @@ import {
   UserGroup,
   Clock,
   Sparkles,
+  CreditCard,
 } from "@medusajs/icons"
 import { Container, Heading, Text, Badge, Button } from "@medusajs/ui"
 import { useAdminTheme, AdminThemeToggle } from "../../components/theme"
@@ -94,6 +95,11 @@ export default function NewsletterSubscribersPage() {
 
   // Notification banners
   const [alert, setAlert] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  // Selection & Bulk Actions
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false)
@@ -305,8 +311,126 @@ export default function NewsletterSubscribersPage() {
     }
   }
 
-  const handleExportCsv = () => {
-    window.open(`/admin/newsletter-subscribers/export?status=${statusFilter}`, "_blank")
+  // Selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (subscribers.length === 0) return
+    const allIds = subscribers.map((s) => s.id)
+    const isAllSelected = allIds.every((id) => selectedIds.includes(id))
+    if (isAllSelected) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(allIds)
+    }
+  }
+
+  // Bulk Delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    setSubmitting(true)
+    try {
+      const res = await fetch("/admin/newsletter-subscribers/bulk-delete", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({ ids: selectedIds }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete selected subscribers")
+      setAlert({
+        type: "success",
+        message: `Successfully deleted ${data.count || selectedIds.length} subscriber(s).`,
+      })
+      setSelectedIds([])
+      setShowBulkDeleteModal(false)
+      fetchSubscribers()
+    } catch (err: any) {
+      setAlert({ type: "error", message: err.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Bulk Status Update (Subscribe or Unsubscribe)
+  const handleBulkStatus = async (nextStatus: "active" | "unsubscribed") => {
+    if (selectedIds.length === 0) return
+    setSubmitting(true)
+    try {
+      const res = await fetch("/admin/newsletter-subscribers/bulk-status", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({
+          ids: selectedIds,
+          status: nextStatus,
+          reason: `Bulk ${nextStatus} update by administrator`,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Failed to update status to ${nextStatus}`)
+      setAlert({
+        type: "success",
+        message: `Successfully updated ${selectedIds.length} subscriber(s) to ${nextStatus}.`,
+      })
+      setSelectedIds([])
+      fetchSubscribers()
+    } catch (err: any) {
+      setAlert({ type: "error", message: err.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Sync / Import Registered Customers
+  const handleSyncCustomers = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch("/admin/newsletter-subscribers/sync-customers", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to sync customers")
+      setAlert({
+        type: "success",
+        message: data.message || "Customer synchronization completed!",
+      })
+      fetchSubscribers()
+    } catch (err: any) {
+      setAlert({ type: "error", message: err.message })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // CSV Export
+  const handleExportCsv = async () => {
+    try {
+      setAlert({ type: "success", message: "Generating subscriber CSV export..." })
+      const res = await fetch(`/admin/newsletter-subscribers/export?status=${statusFilter}`, {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+      if (!res.ok) throw new Error("Failed to export subscribers")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `academyio-newsletter-subscribers-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      setAlert({ type: "success", message: "CSV file downloaded successfully!" })
+    } catch (err: any) {
+      setAlert({ type: "error", message: err.message || "Failed to download export" })
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -345,6 +469,25 @@ export default function NewsletterSubscribersPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={handleSyncCustomers}
+            disabled={syncing}
+            className="flex items-center gap-1.5"
+            title="Import registered store customers into newsletter subscribers"
+          >
+            <UserGroup className="w-4 h-4 text-blue-600" />
+            <span>{syncing ? "Syncing..." : "Sync Customers"}</span>
+          </Button>
+          <a
+            href="/app/subscriptions?tab=subscribers"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-xs"
+            title="View customer recurring membership subscriptions"
+          >
+            <CreditCard className="w-4 h-4 text-purple-600" />
+            <span>Membership Subscriptions</span>
+          </a>
           <Button variant="secondary" size="small" onClick={handleExportCsv} className="flex items-center gap-1.5">
             <ArrowDownTray className="w-4 h-4" />
             <span>Export CSV</span>
@@ -461,12 +604,78 @@ export default function NewsletterSubscribersPage() {
         </form>
       </div>
 
+      {/* Floating / Sticky Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="sticky top-4 z-30 p-3.5 rounded-2xl bg-blue-600 dark:bg-blue-700 text-white shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-xs sm:text-sm bg-white/20 px-2.5 py-1 rounded-xl">
+              {selectedIds.length} Selected
+            </span>
+            <span className="text-xs text-blue-100 hidden sm:inline">
+              Bulk actions for selected subscribers:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleBulkStatus("active")}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Mark all selected as Subscribed & Active"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Mark Subscribed</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleBulkStatus("unsubscribed")}
+              className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Mark all selected as Unsubscribed"
+            >
+              <XMark className="w-3.5 h-3.5" />
+              <span>Mark Unsubscribed</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => setShowBulkDeleteModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-red-800 hover:bg-red-900 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Permanently delete selected subscribers"
+            >
+              <Trash className="w-3.5 h-3.5" />
+              <span>Bulk Delete ({selectedIds.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Subscribers Table Container */}
       <Container className="p-0 overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 dark:bg-slate-800/80 border-b border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={subscribers.length > 0 && subscribers.every((s) => selectedIds.includes(s.id))}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                    title="Select all on this page"
+                  />
+                </th>
                 <th className="py-3 px-4">Email & Name</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Consent Source</th>
@@ -478,22 +687,58 @@ export default function NewsletterSubscribersPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
                     <ArrowPath className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
                     <span>Loading subscriber records...</span>
                   </td>
                 </tr>
               ) : subscribers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-500">
-                    <Envelope className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="font-bold text-sm">No subscribers found</p>
-                    <p className="text-xs text-gray-400 mt-1">Try adjusting your search or status filter.</p>
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                    <Envelope className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                    <p className="font-bold text-base text-gray-900 dark:text-white">No subscribers found</p>
+                    <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+                      Your subscriber list is currently empty. You can automatically sync all registered customer accounts or add subscribers manually.
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={handleSyncCustomers}
+                        disabled={syncing}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5"
+                      >
+                        <UserGroup className="w-4 h-4" />
+                        <span>{syncing ? "Syncing..." : "Sync Registered Customers"}</span>
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add New Subscriber</span>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 subscribers.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                  <tr
+                    key={sub.id}
+                    className={`hover:bg-gray-50/60 dark:hover:bg-slate-800/40 transition-colors ${
+                      selectedIds.includes(sub.id) ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
+                    }`}
+                  >
+                    <td className="py-3 px-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(sub.id)}
+                        onChange={() => handleToggleSelect(sub.id)}
+                        className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                      />
+                    </td>
                     <td className="py-3 px-4">
                       <div className="font-bold text-gray-900 dark:text-white">{sub.email}</div>
                       {sub.first_name && <div className="text-[11px] text-gray-500">{sub.first_name}</div>}
@@ -921,6 +1166,56 @@ export default function NewsletterSubscribersPage() {
             <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex justify-end shrink-0">
               <Button variant="secondary" size="small" onClick={() => setShowDetailModal(false)}>
                 Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3">
+              <Heading level="h2" className="text-lg font-bold text-red-600 flex items-center gap-2">
+                <Trash className="w-5 h-5" />
+                <span>Bulk Delete Subscribers</span>
+              </Heading>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
+              Are you sure you want to permanently delete <strong>{selectedIds.length}</strong> selected subscriber record(s)?
+            </p>
+
+            <div className="p-3 rounded-xl bg-red-50/80 dark:bg-red-950/30 border border-red-200/60 dark:border-red-900/50 text-[11px] text-red-700 dark:text-red-300 leading-relaxed">
+              Warning: This action will completely remove these subscribers and their verification/audit history from the database. This action cannot be undone.
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setShowBulkDeleteModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={submitting}
+                onClick={handleBulkDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {submitting ? "Deleting..." : `Delete ${selectedIds.length} Subscriber(s)`}
               </Button>
             </div>
           </div>

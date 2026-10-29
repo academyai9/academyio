@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from "react"
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { CreditCard, Plus, Trash, PencilSquare, ArrowPath, CheckCircle, XMark, UserGroup, Sparkles } from "@medusajs/icons"
+import {
+  CreditCard,
+  Plus,
+  Trash,
+  PencilSquare,
+  ArrowPath,
+  CheckCircle,
+  XMark,
+  UserGroup,
+  Sparkles,
+  ArrowDownTray,
+  Envelope,
+} from "@medusajs/icons"
 import { Container, Heading, Text, Badge, Button, Input } from "@medusajs/ui"
 import { useAdminTheme, AdminThemeToggle } from "../../components/theme"
 
@@ -11,7 +23,13 @@ export const config = defineRouteConfig({
 })
 
 const getAuthHeaders = () => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("medusa_auth_token") : null
+  let token: string | null = null
+  if (typeof window !== "undefined") {
+    token =
+      localStorage.getItem("medusa_auth_token") ||
+      localStorage.getItem("_medusa_jwt") ||
+      localStorage.getItem("medusa_token")
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`
@@ -99,6 +117,12 @@ export default function SubscriptionsAdminPage() {
   const [subscriberStatusFilter, setSubscriberStatusFilter] = useState("all")
   const [unsubscribeCandidate, setUnsubscribeCandidate] = useState<CustomerSubscription | null>(null)
   const [extendingSubId, setExtendingSubId] = useState<string | null>(null)
+
+  // Bulk selection for Subscribers
+  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([])
+  const [showBulkDeleteSubModal, setShowBulkDeleteSubModal] = useState(false)
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+
   const [grantForm, setGrantForm] = useState({
     customer_id: "",
     customer_email: "",
@@ -131,7 +155,120 @@ export default function SubscriptionsAdminPage() {
 
   useEffect(() => {
     fetchData()
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get("tab") === "subscribers") {
+        setActiveTab("subscribers")
+      }
+    }
   }, [])
+
+  // Bulk Selection Handlers
+  const handleToggleSelectSub = (id: string) => {
+    setSelectedSubIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAllSubs = (filteredSubs: CustomerSubscription[]) => {
+    if (filteredSubs.length === 0) return
+    const ids = filteredSubs.map((s) => s.id)
+    const allSelected = ids.every((id) => selectedSubIds.includes(id))
+    if (allSelected) {
+      setSelectedSubIds([])
+    } else {
+      setSelectedSubIds(ids)
+    }
+  }
+
+  const handleBulkStatusSubs = async (status: "active" | "canceled") => {
+    if (selectedSubIds.length === 0) return
+    setBulkSubmitting(true)
+    try {
+      let updatedCount = 0
+      for (const id of selectedSubIds) {
+        try {
+          const res = await fetch(`/admin/customer-subscriptions/${id}`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            credentials: "include",
+            body: JSON.stringify({
+              status,
+              cancel_at_period_end: status === "canceled",
+            }),
+          })
+          if (res.ok) updatedCount++
+        } catch (e) {
+          // ignore
+        }
+      }
+      setStatusMessage({
+        type: "success",
+        text: `Successfully updated ${updatedCount} subscription(s) to ${
+          status === "active" ? "Subscribed" : "Unsubscribed / Canceled"
+        }.`,
+      })
+      setSelectedSubIds([])
+      fetchData()
+    } catch (e: any) {
+      setStatusMessage({ type: "error", text: e.message || "Failed to update subscriptions" })
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
+
+  const handleBulkDeleteSubs = async () => {
+    if (selectedSubIds.length === 0) return
+    setBulkSubmitting(true)
+    try {
+      const res = await fetch("/admin/customer-subscriptions/bulk-delete", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({ ids: selectedSubIds }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || "Failed to delete selected subscriptions")
+      setStatusMessage({
+        type: "success",
+        text: `Successfully deleted ${data.count || selectedSubIds.length} customer subscription(s).`,
+      })
+      setSelectedSubIds([])
+      setShowBulkDeleteSubModal(false)
+      fetchData()
+    } catch (e: any) {
+      setStatusMessage({ type: "error", text: e.message || "Failed to bulk delete subscriptions" })
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
+
+  const handleExportSubscribersCsv = async () => {
+    try {
+      setStatusMessage({ type: "success", text: "Generating customer subscriptions CSV export..." })
+      const params = new URLSearchParams()
+      if (subscriberStatusFilter !== "all") params.append("status", subscriberStatusFilter)
+      if (subscriberSearch.trim()) params.append("search", subscriberSearch.trim())
+
+      const res = await fetch(`/admin/customer-subscriptions/export?${params.toString()}`, {
+        headers: getAuthHeaders(),
+        credentials: "include",
+      })
+      if (!res.ok) throw new Error("Failed to export customer subscriptions")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `academyio-customer-subscriptions-${subscriberStatusFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      setStatusMessage({ type: "success", text: "Customer subscriptions CSV downloaded successfully!" })
+    } catch (err: any) {
+      setStatusMessage({ type: "error", text: err.message || "Failed to export subscriptions" })
+    }
+  }
 
   const openCreatePlanModal = () => {
     setEditingPlan(null)
@@ -395,6 +532,15 @@ export default function SubscriptionsAdminPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Day / Night Mode Toggle */}
           <AdminThemeToggle isDark={isDark} toggleTheme={toggleTheme} />
+
+          <a
+            href="/app/newsletter-subscribers"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-xs font-semibold shadow-xs"
+            title="Manage email marketing newsletter subscribers"
+          >
+            <Envelope className="w-4 h-4 text-blue-600" />
+            <span>Newsletter Subscribers</span>
+          </a>
 
           <Button
             variant="secondary"
@@ -684,6 +830,17 @@ export default function SubscriptionsAdminPage() {
               })}
 
               <Button
+                variant="secondary"
+                size="small"
+                onClick={handleExportSubscribersCsv}
+                className="flex items-center gap-1.5 rounded-xl text-xs font-semibold"
+                title="Export customer memberships to CSV"
+              >
+                <ArrowDownTray className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </Button>
+
+              <Button
                 variant="primary"
                 size="small"
                 onClick={() => setIsGrantModalOpen(true)}
@@ -695,54 +852,128 @@ export default function SubscriptionsAdminPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 uppercase text-xs font-semibold">
-                    <th className="py-3.5 px-4">Customer</th>
-                    <th className="py-3.5 px-4">Plan</th>
-                    <th className="py-3.5 px-4">Payment Method</th>
-                    <th className="py-3.5 px-4">Billing Period</th>
-                    <th className="py-3.5 px-4">Monthly Access</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {subscribers.filter((s) => {
-                    if (subscriberStatusFilter !== "all" && s.status !== subscriberStatusFilter) return false
-                    if (subscriberSearch.trim()) {
-                      const q = subscriberSearch.toLowerCase().trim()
-                      return (
-                        s.customer_email?.toLowerCase().includes(q) ||
-                        s.customer_id?.toLowerCase().includes(q) ||
-                        s.plan_name?.toLowerCase().includes(q)
-                      )
-                    }
-                    return true
-                  }).length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-neutral-400 dark:text-neutral-500">
-                        No customer subscriptions match the criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    subscribers
-                      .filter((s) => {
-                        if (subscriberStatusFilter !== "all" && s.status !== subscriberStatusFilter) return false
-                        if (subscriberSearch.trim()) {
-                          const q = subscriberSearch.toLowerCase().trim()
-                          return (
-                            s.customer_email?.toLowerCase().includes(q) ||
-                            s.customer_id?.toLowerCase().includes(q) ||
-                            s.plan_name?.toLowerCase().includes(q)
-                          )
-                        }
-                        return true
-                      })
-                      .map((sub) => (
-                        <tr key={sub.id} className="hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40 transition-colors">
+          {(() => {
+            const visibleSubscribers = subscribers.filter((s) => {
+              if (subscriberStatusFilter !== "all" && s.status !== subscriberStatusFilter) return false
+              if (subscriberSearch.trim()) {
+                const q = subscriberSearch.toLowerCase().trim()
+                return (
+                  s.customer_email?.toLowerCase().includes(q) ||
+                  s.customer_id?.toLowerCase().includes(q) ||
+                  s.plan_name?.toLowerCase().includes(q)
+                )
+              }
+              return true
+            })
+            const isAllVisibleSelected =
+              visibleSubscribers.length > 0 &&
+              visibleSubscribers.every((s) => selectedSubIds.includes(s.id))
+
+            return (
+              <>
+                {/* Bulk Actions Floating Bar */}
+                {selectedSubIds.length > 0 && (
+                  <div className="sticky top-4 z-30 p-3.5 rounded-2xl bg-blue-600 dark:bg-blue-700 text-white shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs sm:text-sm bg-white/20 px-2.5 py-1 rounded-xl">
+                        {selectedSubIds.length} Selected
+                      </span>
+                      <span className="text-xs text-blue-100 hidden sm:inline">
+                        Bulk actions for selected subscriptions:
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={bulkSubmitting}
+                        onClick={() => handleBulkStatusSubs("active")}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        title="Re-subscribe & activate selected memberships"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Bulk Re-subscribe</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={bulkSubmitting}
+                        onClick={() => handleBulkStatusSubs("canceled")}
+                        className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        title="Unsubscribe / Cancel selected memberships"
+                      >
+                        <XMark className="w-3.5 h-3.5" />
+                        <span>Bulk Unsubscribe</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={bulkSubmitting}
+                        onClick={() => setShowBulkDeleteSubModal(true)}
+                        className="px-3 py-1.5 rounded-xl bg-red-800 hover:bg-red-900 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        title="Permanently delete selected subscriptions"
+                      >
+                        <Trash className="w-3.5 h-3.5" />
+                        <span>Bulk Delete ({selectedSubIds.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSubIds([])}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 uppercase text-xs font-semibold">
+                          <th className="py-3.5 px-4 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isAllVisibleSelected}
+                              onChange={() => handleSelectAllSubs(visibleSubscribers)}
+                              className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                              title="Select all on this page"
+                            />
+                          </th>
+                          <th className="py-3.5 px-4">Customer</th>
+                          <th className="py-3.5 px-4">Plan</th>
+                          <th className="py-3.5 px-4">Payment Method</th>
+                          <th className="py-3.5 px-4">Billing Period</th>
+                          <th className="py-3.5 px-4">Monthly Access</th>
+                          <th className="py-3.5 px-4">Status</th>
+                          <th className="py-3.5 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                        {visibleSubscribers.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-12 text-center text-neutral-400 dark:text-neutral-500">
+                              No customer subscriptions match the criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          visibleSubscribers.map((sub) => (
+                            <tr
+                              key={sub.id}
+                              className={`hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40 transition-colors ${
+                                selectedSubIds.includes(sub.id) ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
+                              }`}
+                            >
+                              <td className="py-4 px-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSubIds.includes(sub.id)}
+                                  onChange={() => handleToggleSelectSub(sub.id)}
+                                  className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                                />
+                              </td>
                           <td className="py-4 px-4">
                             <div className="font-semibold text-neutral-900 dark:text-neutral-100">{sub.customer_email}</div>
                             <div className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">{sub.customer_id}</div>
@@ -836,13 +1067,16 @@ export default function SubscriptionsAdminPage() {
                           </td>
                         </tr>
                       ))
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )
+      })()}
+    </div>
+  )}
 
       {/* Plan Modal */}
       {isPlanModalOpen && (
@@ -1248,6 +1482,55 @@ export default function SubscriptionsAdminPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Bulk Delete Subscriptions Modal */}
+      {showBulkDeleteSubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+              <Heading level="h2" className="text-lg font-bold text-red-600 flex items-center gap-2">
+                <Trash className="w-5 h-5" />
+                <span>Bulk Delete Subscriptions</span>
+              </Heading>
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteSubModal(false)}
+                className="text-neutral-400 hover:text-neutral-600"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+              Are you sure you want to permanently delete <strong>{selectedSubIds.length}</strong> selected customer subscription record(s)?
+            </p>
+
+            <div className="p-3 rounded-xl bg-red-50/80 dark:bg-red-950/30 border border-red-200/60 dark:border-red-900/50 text-[11px] text-red-700 dark:text-red-300 leading-relaxed">
+              Warning: This action will completely remove these customer memberships from the database. This cannot be undone.
+            </div>
+
+            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setShowBulkDeleteSubModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={bulkSubmitting}
+                onClick={handleBulkDeleteSubs}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {bulkSubmitting ? "Deleting..." : `Delete ${selectedSubIds.length} Subscription(s)`}
+              </Button>
+            </div>
           </div>
         </div>
       )}
