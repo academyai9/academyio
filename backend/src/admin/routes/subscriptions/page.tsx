@@ -534,7 +534,7 @@ export default function SubscriptionsAdminPage() {
           <AdminThemeToggle isDark={isDark} toggleTheme={toggleTheme} />
 
           <a
-            href="/app/newsletter-subscribers"
+            href="/webapp/newsletter-subscribers"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-xs font-semibold shadow-xs"
             title="Manage email marketing newsletter subscribers"
           >

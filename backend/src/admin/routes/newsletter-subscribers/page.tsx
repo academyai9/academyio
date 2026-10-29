@@ -481,7 +481,7 @@ export default function NewsletterSubscribersPage() {
             <span>{syncing ? "Syncing..." : "Sync Customers"}</span>
           </Button>
           <a
-            href="/app/subscriptions?tab=subscribers"
+            href="/webapp/subscriptions?tab=subscribers"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-xs"
             title="View customer recurring membership subscriptions"
           >

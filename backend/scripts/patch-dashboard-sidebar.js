@@ -13,7 +13,7 @@ function patchFile(filename, replacer) {
   if (!fs.existsSync(bakPath)) {
     fs.copyFileSync(filePath, bakPath);
   }
-  let content = fs.readFileSync(filePath, "utf8");
+  let content = fs.readFileSync(bakPath, "utf8");
   const newContent = replacer(content);
   if (newContent !== content) {
     fs.writeFileSync(filePath, newContent, "utf8");
@@ -63,7 +63,8 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
       { label: "Orders Hub", to: "/orders-management" },
       { label: "Order Monitoring", to: "/order-monitoring" },
       { label: "Payment Methods", to: "/payment-methods" },
-      { label: "Subscriptions", to: "/subscriptions" }
+      { label: "Subscriptions & Plans", to: "/subscriptions" },
+      { label: "Active Subscribers", to: "/subscriptions?tab=subscribers" }
     ]
   };
 
@@ -73,8 +74,31 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     icon: /* @__PURE__ */ jsx16(Users, {}),
     items: [
       { label: "Customer Directory", to: "/customers" },
+      { label: "Membership Subscribers", to: "/subscriptions?tab=subscribers" },
+      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
       { label: "Registrations & Access", to: "/entitlements" },
       { label: "Customer Groups", to: "/customer-groups" }
+    ]
+  };
+
+  const subscribersItem = {
+    to: "/subscriptions?tab=subscribers",
+    label: "Subscribers",
+    icon: findExt("/subscriptions")?.icon || /* @__PURE__ */ jsx16(Users, {}),
+    items: [
+      { label: "Membership Subscribers", to: "/subscriptions?tab=subscribers" },
+      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
+      { label: "Subscription Plans & Tiers", to: "/subscriptions" }
+    ]
+  };
+
+  const newsletterItem = {
+    to: "/newsletter-subscribers",
+    label: "Newsletter",
+    icon: findExt("/newsletter-subscribers")?.icon || findExt("/newsletter-campaigns")?.icon || /* @__PURE__ */ jsx16(SquaresPlus, {}),
+    items: [
+      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
+      { label: "Newsletter Campaigns", to: "/newsletter-campaigns" }
     ]
   };
 
@@ -97,6 +121,8 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     label: "Content & Marketing",
     icon: findExt("/promotions")?.icon || /* @__PURE__ */ jsx16(SquaresPlus, {}),
     items: [
+      { label: "Newsletter Subscribers", to: "/newsletter-subscribers" },
+      { label: "Newsletter Campaigns", to: "/newsletter-campaigns" },
       { label: "Promotions & Banners", to: "/promotions" },
       { label: "Regulatory Bodies", to: "/organizations" },
       { label: "Credits Management", to: "/credits" },
@@ -131,6 +157,8 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     overviewItem,
     ordersItem,
     customersItem,
+    subscribersItem,
+    newsletterItem,
     webinarsItem,
     marketingItem,
     policiesItem,
