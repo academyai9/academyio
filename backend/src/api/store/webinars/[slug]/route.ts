@@ -182,7 +182,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
             logo_url: (orgMeta?.logo_url && !orgMeta.logo_url.endsWith(".svg"))
               ? orgMeta.logo_url
               : `/logos/${assigned.org_code}.png`,
-            website_url: orgMeta?.website_url || null,
+            website_url: null,
             alt_text: orgMeta?.alt_text || `${assigned.org_code?.toUpperCase()} Accreditation`,
             description: orgMeta?.description || null,
             default_credit_type: orgMeta?.default_credit_type || "CPE Credits",

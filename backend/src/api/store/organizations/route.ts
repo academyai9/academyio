@@ -33,7 +33,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
         name,
         short_name,
         logo_url,
-        website_url,
+        NULL as website_url,
         alt_text,
         description,
         default_credit_type,

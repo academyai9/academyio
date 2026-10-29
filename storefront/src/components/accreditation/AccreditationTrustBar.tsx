@@ -1,5 +1,5 @@
 import React from "react"
-import { ShieldCheck, ExternalLink } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import { AccreditationOrg, SectionSettings } from "@lib/data/organizations"
 
 export default function AccreditationTrustBar({
@@ -75,20 +75,6 @@ export default function AccreditationTrustBar({
                     {org.description}
                   </p>
                 </div>
-
-                {org.website_url && (
-                  <div className="pt-3 mt-4 border-t border-gray-100 dark:border-slate-800">
-                    <a
-                      href={org.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      <span>Official Registry</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                )}
               </div>
             )
           })}

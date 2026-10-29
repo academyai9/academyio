@@ -11,7 +11,6 @@ import {
   ExclamationCircle,
   Trash,
   MagnifyingGlass,
-  ArrowUpRightOnBox,
   Photo,
 } from "@medusajs/icons"
 import { Container, Heading, Text, Badge, Button, Input } from "@medusajs/ui"
@@ -556,20 +555,6 @@ export default function OrganizationsAdminPage() {
                 </span>
                 <span>•</span>
                 <span>Order: #{org.display_order}</span>
-                {org.website_url && (
-                  <>
-                    <span>•</span>
-                    <a
-                      href={org.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-0.5"
-                    >
-                      Official Registry
-                      <ArrowUpRightOnBox className="w-3 h-3" />
-                    </a>
-                  </>
-                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -623,7 +608,7 @@ export default function OrganizationsAdminPage() {
                   {editingOrg ? `Edit Regulatory Body: ${editingOrg.short_name}` : "Add New Regulatory Body"}
                 </h2>
                 <p className="text-xs text-ui-fg-subtle mt-0.5">
-                  Configure accreditation identity, logos, official registry links, and visibility.
+                  Configure accreditation identity, logos, and visibility.
                 </p>
               </div>
               <button
@@ -742,12 +727,12 @@ export default function OrganizationsAdminPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="font-bold text-ui-fg-base block mb-1">Website / Registry URL</label>
+                  <label className="font-bold text-ui-fg-base block mb-1">Website URL (Optional)</label>
                   <input
                     type="url"
                     value={formData.website_url}
                     onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
-                    placeholder="https://www.nasbaregistry.org"
+                    placeholder="https://example.com"
                     className="w-full px-3 py-2 rounded-xl border border-ui-border-base bg-ui-bg-base text-ui-fg-base focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -758,7 +743,7 @@ export default function OrganizationsAdminPage() {
                     type="text"
                     value={formData.alt_text}
                     onChange={(e) => setFormData({ ...formData, alt_text: e.target.value })}
-                    placeholder="e.g. NASBA National Registry of CPE Sponsors"
+                    placeholder="e.g. Continuing Professional Education Sponsor"
                     className="w-full px-3 py-2 rounded-xl border border-ui-border-base bg-ui-bg-base text-ui-fg-base focus:outline-none focus:border-blue-500"
                   />
                 </div>
