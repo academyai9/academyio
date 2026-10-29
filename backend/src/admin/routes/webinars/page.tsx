@@ -548,8 +548,7 @@ export default function WebinarsAdminPage() {
       if (res.ok) {
         notify("success", data.message || `Webinar "${title}" deleted successfully.`)
         if (selectedWebinarId === id) {
-          setSelectedWebinarId(null)
-          setSelectedWebinar(null)
+          setSelectedWebinarId("")
         }
         await fetchWebinars()
       } else {

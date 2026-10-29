@@ -56,6 +56,7 @@ export default function WebinarFilesTab({
 
   // Upload modal state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
   const [uploadQueue, setUploadQueue] = useState<{ file: File; progress: number; status: "pending" | "uploading" | "done" | "error"; error?: string }[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -170,7 +171,10 @@ export default function WebinarFilesTab({
   // Execute Upload Flow
   const handleStartUpload = async (e: React.FormEvent) => {
     e.preventDefault()
+    setModalError(null)
+
     if (uploadQueue.length === 0) {
+      setModalError("Please select at least one file to upload.")
       notify("error", "Please select at least one file to upload.")
       return
     }
@@ -216,8 +220,15 @@ export default function WebinarFilesTab({
         })
 
         if (!uploadRes.ok) {
-          const errData = await uploadRes.json()
-          throw new Error(errData.message || `Upload failed for ${file.name}`)
+          let errMsg = `Upload failed (${uploadRes.status})`
+          try {
+            const errData = await uploadRes.json()
+            if (errData?.message) errMsg = errData.message
+          } catch {
+            const text = await uploadRes.text()
+            if (text) errMsg = text.slice(0, 150)
+          }
+          throw new Error(errMsg)
         }
 
         const uploadData = await uploadRes.json()
@@ -254,8 +265,15 @@ export default function WebinarFilesTab({
         })
 
         if (!recordRes.ok) {
-          const errData = await recordRes.json()
-          throw new Error(errData.message || `Failed to record file metadata for ${file.name}`)
+          let errMsg = `Failed to record file metadata (${recordRes.status})`
+          try {
+            const errData = await recordRes.json()
+            if (errData?.message) errMsg = errData.message
+          } catch {
+            const text = await recordRes.text()
+            if (text) errMsg = text.slice(0, 150)
+          }
+          throw new Error(errMsg)
         }
 
         setUploadQueue((prev) =>
@@ -266,6 +284,7 @@ export default function WebinarFilesTab({
       notify("success", "Webinar material uploaded and registered successfully in private storage!")
       setIsUploadModalOpen(false)
       setUploadQueue([])
+      setModalError(null)
       setUploadForm({
         title: "",
         description: "",
@@ -276,6 +295,7 @@ export default function WebinarFilesTab({
       })
       await fetchFiles()
     } catch (err: any) {
+      setModalError(err.message || "Upload process failed.")
       notify("error", err.message || "Upload process failed.")
     } finally {
       setUploading(false)
@@ -351,8 +371,15 @@ export default function WebinarFilesTab({
       })
 
       if (!uploadRes.ok) {
-        const err = await uploadRes.json()
-        throw new Error(err.message || "Failed to upload replacement asset")
+        let errMsg = `Failed to upload replacement asset (${uploadRes.status})`
+        try {
+          const err = await uploadRes.json()
+          if (err?.message) errMsg = err.message
+        } catch {
+          const text = await uploadRes.text()
+          if (text) errMsg = text.slice(0, 150)
+        }
+        throw new Error(errMsg)
       }
 
       const uploadData = await uploadRes.json()
@@ -373,8 +400,15 @@ export default function WebinarFilesTab({
       })
 
       if (!updateRes.ok) {
-        const err = await updateRes.json()
-        throw new Error(err.message || "Failed to update record with replaced file")
+        let errMsg = `Failed to update record with replaced file (${updateRes.status})`
+        try {
+          const err = await updateRes.json()
+          if (err?.message) errMsg = err.message
+        } catch {
+          const text = await updateRes.text()
+          if (text) errMsg = text.slice(0, 150)
+        }
+        throw new Error(errMsg)
       }
 
       notify("success", `File "${replacingFile.title}" successfully replaced with ${file.name}.`)
@@ -757,6 +791,13 @@ export default function WebinarFilesTab({
             </div>
 
             <form onSubmit={handleStartUpload} className="space-y-4">
+              {modalError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 text-xs font-semibold flex items-center justify-between">
+                  <span>{modalError}</span>
+                  <button type="button" onClick={() => setModalError(null)} className="opacity-70 hover:opacity-100">✕</button>
+                </div>
+              )}
+
               {/* File Dropzone Area */}
               <div>
                 <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase mb-1.5">

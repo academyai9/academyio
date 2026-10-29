@@ -32,6 +32,10 @@ export interface PresignedDownloadResult {
 const ALLOWED_MIME_TYPES = new Set([
   // Documents
   "application/pdf",
+  "application/x-pdf",
+  "application/acrobat",
+  "applications/vnd.pdf",
+  "text/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-powerpoint",
@@ -75,11 +79,11 @@ export class S3StorageService {
   private static localFallbackDir = path.resolve(process.cwd(), "static/private-uploads")
 
   private static getRegion(): string {
-    return process.env.AWS_REGION || "us-east-1"
+    return process.env.AWS_REGION || process.env.S3_REGION || "us-east-1"
   }
 
   private static getBucket(): string {
-    return process.env.AWS_S3_BUCKET || "academyio-private-webinars"
+    return process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || "academyio-private-webinars"
   }
 
   /**
@@ -91,18 +95,25 @@ export class S3StorageService {
         region: this.getRegion(),
       }
 
-      // Check for explicit credentials or EC2 instance profile / role
-      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      // Check for explicit credentials (supports both AWS_* and S3_* environment keys)
+      const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID
+      const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY
+
+      if (accessKeyId && secretAccessKey) {
         config.credentials = {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          accessKeyId,
+          secretAccessKey,
         }
       }
 
-      // Optional custom endpoint for MinIO / LocalStack / GovCloud
-      if (process.env.AWS_S3_ENDPOINT) {
-        config.endpoint = process.env.AWS_S3_ENDPOINT
-        config.forcePathStyle = process.env.AWS_S3_FORCE_PATH_STYLE === "true" || true
+      // Optional custom endpoint for MinIO / LocalStack / Cloudflare R2 / S3-compatible storage
+      const endpoint = process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT
+      if (endpoint) {
+        config.endpoint = endpoint
+        config.forcePathStyle =
+          process.env.AWS_S3_FORCE_PATH_STYLE === "true" ||
+          process.env.S3_FORCE_PATH_STYLE === "true" ||
+          true
       }
 
       this.s3ClientInstance = new S3Client(config)
@@ -112,12 +123,14 @@ export class S3StorageService {
   }
 
   /**
-   * Returns true if live AWS credentials or S3 endpoint is configured
+   * Returns true if live AWS / S3 credentials or endpoint is configured
    */
   public static isLiveS3Configured(): boolean {
     return Boolean(
       (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) ||
+      (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) ||
       process.env.AWS_S3_ENDPOINT ||
+      process.env.S3_ENDPOINT ||
       process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
       process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI
     )
@@ -131,7 +144,7 @@ export class S3StorageService {
     fileSize: number
     mimeType: string
     materialType?: string
-  }): { valid: boolean; error?: string } {
+  }): { valid: boolean; error?: string; resolvedMime?: string } {
     const { fileName, fileSize, mimeType, materialType } = params
 
     if (!fileName || typeof fileName !== "string" || fileName.trim().length === 0) {
@@ -150,7 +163,68 @@ export class S3StorageService {
       }
     }
 
-    const normalizedMime = (mimeType || "").toLowerCase().trim()
+    let normalizedMime = (mimeType || "").toLowerCase().trim()
+    if (normalizedMime.includes(";")) {
+      normalizedMime = normalizedMime.split(";")[0].trim()
+    }
+
+    // Auto-resolve MIME type from extension if missing or generic octet-stream
+    if (!normalizedMime || normalizedMime === "application/octet-stream" || !ALLOWED_MIME_TYPES.has(normalizedMime)) {
+      switch (ext) {
+        case ".pdf":
+          normalizedMime = "application/pdf"
+          break
+        case ".doc":
+          normalizedMime = "application/msword"
+          break
+        case ".docx":
+          normalizedMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          break
+        case ".ppt":
+          normalizedMime = "application/vnd.ms-powerpoint"
+          break
+        case ".pptx":
+          normalizedMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          break
+        case ".xls":
+          normalizedMime = "application/vnd.ms-excel"
+          break
+        case ".xlsx":
+          normalizedMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          break
+        case ".txt":
+          normalizedMime = "text/plain"
+          break
+        case ".csv":
+          normalizedMime = "text/csv"
+          break
+        case ".rtf":
+          normalizedMime = "application/rtf"
+          break
+        case ".zip":
+          normalizedMime = "application/zip"
+          break
+        case ".mp4":
+          normalizedMime = "video/mp4"
+          break
+        case ".mov":
+          normalizedMime = "video/quicktime"
+          break
+        case ".webm":
+          normalizedMime = "video/webm"
+          break
+        case ".mp3":
+          normalizedMime = "audio/mp3"
+          break
+        case ".wav":
+          normalizedMime = "audio/wav"
+          break
+        case ".m4a":
+          normalizedMime = "audio/x-m4a"
+          break
+      }
+    }
+
     if (!ALLOWED_MIME_TYPES.has(normalizedMime)) {
       return {
         valid: false,
@@ -170,7 +244,7 @@ export class S3StorageService {
       }
     }
 
-    return { valid: true }
+    return { valid: true, resolvedMime: normalizedMime }
   }
 
   /**

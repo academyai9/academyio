@@ -39,41 +39,52 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       return res.status(400).json({ message: validation.error })
     }
 
+    const finalMime = validation.resolvedMime || mimeType || "application/octet-stream"
+
     const s3Key = S3StorageService.generateObjectKey({
       webinarId,
       materialType,
       fileName,
     })
 
-    const bucket = process.env.AWS_S3_BUCKET || "academyio-private-webinars"
-    const region = process.env.AWS_REGION || "us-east-1"
+    const bucket = process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || "academyio-private-webinars"
+    const region = process.env.AWS_REGION || process.env.S3_REGION || "us-east-1"
 
     if (S3StorageService.isLiveS3Configured()) {
-      const config: any = { region }
-      if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-        config.credentials = {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      try {
+        const config: any = { region }
+        const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID
+        const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY
+        const endpoint = process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT
+
+        if (accessKeyId && secretAccessKey) {
+          config.credentials = {
+            accessKeyId,
+            secretAccessKey,
+          }
         }
+        if (endpoint) {
+          config.endpoint = endpoint
+          config.forcePathStyle = true
+        }
+        const s3Client = new S3Client(config)
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: s3Key,
+            Body: fileBuffer,
+            ContentType: finalMime,
+            Metadata: {
+              "webinar-id": webinarId,
+              "material-type": materialType,
+              "original-filename": encodeURIComponent(fileName),
+            },
+          })
+        )
+      } catch (s3Err: any) {
+        console.warn("Live S3 upload failed, using secure local fallback storage:", s3Err.message)
+        S3StorageService.saveLocalFile(s3Key, fileBuffer)
       }
-      if (process.env.AWS_S3_ENDPOINT) {
-        config.endpoint = process.env.AWS_S3_ENDPOINT
-        config.forcePathStyle = true
-      }
-      const s3Client = new S3Client(config)
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: s3Key,
-          Body: fileBuffer,
-          ContentType: mimeType || "application/octet-stream",
-          Metadata: {
-            "webinar-id": webinarId,
-            "material-type": materialType,
-            "original-filename": encodeURIComponent(fileName),
-          },
-        })
-      )
     } else {
       // Local fallback
       S3StorageService.saveLocalFile(s3Key, fileBuffer)
@@ -86,7 +97,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       s3_region: region,
       file_name: fileName,
       file_size: fileSize,
-      mime_type: mimeType || "application/octet-stream",
+      mime_type: finalMime,
       material_type: materialType,
     })
   } catch (error: any) {

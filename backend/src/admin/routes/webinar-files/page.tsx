@@ -122,7 +122,12 @@ export default function StandaloneWebinarFilesPage() {
           <ArrowPath className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
           <span className="text-xs">Loading webinars...</span>
         </div>
-      ) : null}
+      ) : (
+        <div className="p-12 text-center text-neutral-500 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
+          <Text className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">No webinars found.</Text>
+          <Text className="text-xs text-neutral-400 mt-1">Please create a webinar first to upload and manage its learning materials.</Text>
+        </div>
+      )}
     </Container>
   )
 }
