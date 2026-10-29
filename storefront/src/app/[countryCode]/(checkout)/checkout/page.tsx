@@ -25,6 +25,10 @@ type CheckoutPageProps = {
 export default async function Checkout(props: CheckoutPageProps) {
   const { countryCode } = await props.params
 
+  if (countryCode && countryCode.toLowerCase() !== "us") {
+    redirect("/us/checkout")
+  }
+
   // 1. Mandatory Login Guard: Unauthenticated visitors must register or login before checkout
   const customer = await retrieveCustomer()
   if (!customer) {

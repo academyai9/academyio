@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { getBaseURL } from "@lib/util/env"
 import Navbar from "@/components/navigation/Navbar"
 import Footer from "@/components/navigation/Footer"
@@ -56,6 +57,12 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
+
+  // Enforce strictly 'us' region across storefront
+  if (countryCode && countryCode.toLowerCase() !== "us") {
+    redirect("/us")
+  }
+
   const [customer, trackingCodes] = await Promise.all([
     retrieveCustomer(),
     getStoreTrackingCodes(),
