@@ -12,6 +12,8 @@ import {
   InformationCircleSolid,
   IdBadge,
   ShieldCheck,
+  Trash,
+  ExclamationCircle,
 } from "@medusajs/icons"
 
 interface CustomerDetailsWidgetProps {
@@ -37,6 +39,30 @@ export default function CustomerAdditionalInfoWidget({ data: customer }: Custome
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletingCustomer, setDeletingCustomer] = useState(false)
+
+  const handleDeleteCustomer = async () => {
+    setDeletingCustomer(true)
+    try {
+      const res = await fetch(`/admin/customers-directory/${customer.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete customer")
+      }
+      setIsDeleteModalOpen(false)
+      if (typeof window !== "undefined") {
+        window.location.href = "/webapp/customers"
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to delete customer")
+      setDeletingCustomer(false)
+    }
+  }
 
   const [form, setForm] = useState({
     ptin: "",
@@ -195,15 +221,26 @@ export default function CustomerAdditionalInfoWidget({ data: customer }: Custome
             </div>
           </div>
 
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-1.5"
-          >
-            <PencilSquare className="w-3.5 h-3.5" />
-            <span>Edit Credentials</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center gap-1.5 cursor-pointer"
+            >
+              <PencilSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Edit Credentials</span>
+            </Button>
+            <Button
+              size="small"
+              variant="danger"
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash className="w-3.5 h-3.5" />
+              <span>Delete Customer</span>
+            </Button>
+          </div>
         </div>
 
         {/* Credentials Grid */}
@@ -436,6 +473,58 @@ export default function CustomerAdditionalInfoWidget({ data: customer }: Custome
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-ui-bg-base rounded-2xl border border-ui-border-base shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-ui-border-base text-rose-600 dark:text-rose-400">
+              <Trash className="w-6 h-6 flex-shrink-0" />
+              <Heading level="h3" className="text-base font-bold text-ui-fg-base">
+                Delete Customer Account
+              </Heading>
+            </div>
+
+            <div className="space-y-3 text-xs text-ui-fg-subtle leading-relaxed">
+              <p>
+                Are you sure you want to permanently delete customer{" "}
+                <strong className="text-ui-fg-base font-semibold">{customer.email}</strong>?
+              </p>
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 space-y-1">
+                <span className="font-bold flex items-center gap-1.5">
+                  <ExclamationCircle className="w-4 h-4 text-rose-600" />
+                  Irreversible Action
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  This will permanently delete this customer profile, login credentials, passwords, and subscriptions. Historical order accounting records remain preserved safely.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-ui-border-base">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="small"
+                disabled={deletingCustomer}
+                onClick={handleDeleteCustomer}
+                className="rounded-xl px-5"
+              >
+                {deletingCustomer ? "Deleting..." : "Yes, Delete Customer"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

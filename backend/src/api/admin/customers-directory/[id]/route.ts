@@ -331,13 +331,17 @@ export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
 
     await client.query("BEGIN")
 
-    // 1. Unlink existing orders so financial records and accounting history remain safe
+    // 1. Unlink existing orders, carts, and addresses so financial records and accounting history remain safe
     await client.query(`UPDATE "order" SET customer_id = NULL WHERE customer_id = $1`, [id])
-
-    // 2. Unlink carts
     await client.query(`UPDATE cart SET customer_id = NULL WHERE customer_id = $1`, [id])
+    await client.query(`UPDATE cart_address SET customer_id = NULL WHERE customer_id = $1`, [id])
+    await client.query(`UPDATE order_address SET customer_id = NULL WHERE customer_id = $1`, [id])
 
-    // 3. Clean up customer specific tables
+    // 2. Delete customer addresses & customer group mappings
+    await client.query(`DELETE FROM customer_address WHERE customer_id = $1`, [id])
+    await client.query(`DELETE FROM customer_group_customer WHERE customer_id = $1`, [id])
+
+    // 3. Clean up customer custom tables (entitlements, subscriptions, resets, quizzes, certificates)
     await client.query(
       `DELETE FROM customer_entitlement WHERE customer_id = $1 OR LOWER(customer_email) = $2`,
       [id, customerEmail]
@@ -366,21 +370,11 @@ export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
       [id]
     )
 
-    // 5. Soft-delete and attempt hard-delete
-    await client.query(`UPDATE customer SET deleted_at = NOW() WHERE id = $1`, [id])
-    try {
-      await client.query(`DELETE FROM customer WHERE id = $1`, [id])
-    } catch (ignoreErr) {
-      // Soft-delete is active
-    }
+    // 5. Clean up audit logs
+    await client.query(`DELETE FROM customer_audit_log WHERE customer_id = $1`, [id])
 
-    // 6. Record audit log
-    const logId = "cal_" + crypto.randomBytes(12).toString("hex")
-    await client.query(
-      `INSERT INTO customer_audit_log (id, customer_id, admin_email, action, details, created_at)
-       VALUES ($1, $2, 'admin@academyio.com', 'CUSTOMER_DELETED', $3, NOW())`,
-      [logId, id, JSON.stringify({ email: customer.email, deleted_at: new Date().toISOString() })]
-    )
+    // 6. Delete customer record completely from database
+    await client.query(`DELETE FROM customer WHERE id = $1`, [id])
 
     await client.query("COMMIT")
 

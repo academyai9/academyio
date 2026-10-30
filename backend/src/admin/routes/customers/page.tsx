@@ -341,19 +341,19 @@ export default function CustomersAdminPage() {
   }
 
   // Open Edit Modal
-  const openEditModal = (c: CustomerSummary | CustomerDetail) => {
+  const openEditModal = (c: any) => {
     setEditCustomer(c)
     setEditError(null)
     setEditForm({
       first_name: c.first_name || "",
       last_name: c.last_name || "",
       email: c.email || "",
-      phone: c.phone || "",
-      company_name: c.company_name || "",
-      ptin: c.ptin || "",
-      cfp_id: c.cfp_id || "",
-      license_type: c.license_type || "CPA",
-      account_status: c.account_status || "active",
+      phone: c.phone || c.metadata?.phone || "",
+      company_name: c.company_name || c.metadata?.company_name || "",
+      ptin: c.ptin || c.metadata?.ptin || "",
+      cfp_id: c.cfp_id || c.metadata?.cfp_id || "",
+      license_type: c.license_type || c.metadata?.license_type || "CPA",
+      account_status: c.account_status || c.metadata?.account_status || "active",
     })
     setIsEditModalOpen(true)
   }
@@ -495,6 +495,7 @@ export default function CustomersAdminPage() {
           setSelectedCustomerId(null)
           setCustomerDetail(null)
         }
+        setDeleteTargetCustomer(null)
         loadCustomers()
       } else {
         setNotification({ type: "error", message: data.message || "Failed to process deletion." })
@@ -1064,7 +1065,32 @@ export default function CustomersAdminPage() {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Edit profile */}
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(c)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                            title="Edit Customer Profile"
+                          >
+                            <PencilSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <span>Edit</span>
+                          </button>
+
+                          {/* Delete Account */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTargetCustomer(c)
+                              setIsDeleteModalOpen(true)
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/60 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                            title="Delete Customer Account"
+                          >
+                            <Trash className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                            <span>Delete</span>
+                          </button>
+
                           {/* View details */}
                           <button
                             type="button"
@@ -1073,20 +1099,10 @@ export default function CustomersAdminPage() {
                               setDetailTab("profile")
                               loadCustomerDetails(c.id)
                             }}
-                            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-blue-600 dark:text-blue-400"
-                            title="View Customer Details"
+                            className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 transition-all cursor-pointer"
+                            title="View Full Customer Details"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Edit profile */}
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(c)}
-                            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                            title="Edit Profile"
-                          >
-                            <PencilSquare className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Quick Password Dropdown / Modal */}
@@ -1098,7 +1114,7 @@ export default function CustomersAdminPage() {
                               setPasswordError(null)
                               setIsSetPasswordModalOpen(true)
                             }}
-                            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-amber-600 dark:text-amber-400"
+                            className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-amber-600 dark:text-amber-400 transition-all cursor-pointer"
                             title="Set Password"
                           >
                             <LockClosedSolid className="w-3.5 h-3.5" />
@@ -1112,23 +1128,10 @@ export default function CustomersAdminPage() {
                               setResetEmailResult(null)
                               setIsResetEmailModalOpen(true)
                             }}
-                            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-indigo-600 dark:text-indigo-400"
+                            className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-indigo-600 dark:text-indigo-400 transition-all cursor-pointer"
                             title="Send Password Reset Email"
                           >
                             <ArrowPath className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Delete / Deactivate */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteTargetCustomer(c)
-                              setIsDeleteModalOpen(true)
-                            }}
-                            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400"
-                            title="Delete / Deactivate Account"
-                          >
-                            <Trash className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -1235,10 +1238,22 @@ export default function CustomersAdminPage() {
                       variant="secondary"
                       size="small"
                       onClick={() => openEditModal(customerDetail)}
-                      className="rounded-xl flex items-center gap-1.5"
+                      className="rounded-xl flex items-center gap-1.5 cursor-pointer"
                     >
-                      <PencilSquare className="w-3.5 h-3.5" />
-                      Edit
+                      <PencilSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="small"
+                      onClick={() => {
+                        setDeleteTargetCustomer(customerDetail)
+                        setIsDeleteModalOpen(true)
+                      }}
+                      className="rounded-xl flex items-center gap-1.5 px-3 cursor-pointer"
+                    >
+                      <Trash className="w-3.5 h-3.5" />
+                      Delete Customer
                     </Button>
                     <Button
                       variant="secondary"
@@ -1249,9 +1264,9 @@ export default function CustomersAdminPage() {
                         setPasswordError(null)
                         setIsSetPasswordModalOpen(true)
                       }}
-                      className="rounded-xl flex items-center gap-1.5"
+                      className="rounded-xl flex items-center gap-1.5 cursor-pointer"
                     >
-                      <LockClosedSolid className="w-3.5 h-3.5" />
+                      <LockClosedSolid className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                       Set Password
                     </Button>
                   </>
@@ -1364,10 +1379,20 @@ export default function CustomersAdminPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Personal & Contact Details */}
                         <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-850/50 space-y-3 text-xs">
-                          <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2 mb-2">
-                            <UserGroup className="w-4 h-4 text-blue-500" />
-                            Personal & Contact Details
-                          </h3>
+                          <div className="flex items-center justify-between pb-1">
+                            <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                              <UserGroup className="w-4 h-4 text-blue-500" />
+                              Personal & Contact Details
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(customerDetail)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors cursor-pointer"
+                            >
+                              <PencilSquare className="w-3.5 h-3.5" />
+                              Edit Profile
+                            </button>
+                          </div>
 
                           <div className="flex justify-between py-1.5 border-b border-neutral-200/60 dark:border-neutral-800">
                             <span className="text-neutral-500 dark:text-neutral-400">First Name:</span>
@@ -1493,6 +1518,31 @@ export default function CustomersAdminPage() {
                             </span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Danger Zone: Delete Customer Account */}
+                      <div className="p-5 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                            <Trash className="w-4 h-4" />
+                            Danger Zone: Delete Customer Account
+                          </h4>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                            Permanently delete this customer account, authentication credentials, and subscriptions. Financial orders are kept safely for accounting audit records.
+                          </p>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="small"
+                          onClick={() => {
+                            setDeleteTargetCustomer(customerDetail)
+                            setIsDeleteModalOpen(true)
+                          }}
+                          className="rounded-xl flex items-center gap-1.5 whitespace-nowrap px-4 py-2 cursor-pointer"
+                        >
+                          <Trash className="w-3.5 h-3.5" />
+                          Delete Customer
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -1947,6 +1997,31 @@ export default function CustomersAdminPage() {
                             </table>
                           </div>
                         )}
+                      </div>
+
+                      {/* Danger Zone: Permanent Account Deletion */}
+                      <div className="p-5 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-6">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                            <Trash className="w-4 h-4" />
+                            Danger Zone: Permanent Account Deletion
+                          </h4>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                            Permanently revoke customer login credentials, password hashes, entitlements, and customer record.
+                          </p>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="small"
+                          onClick={() => {
+                            setDeleteTargetCustomer(customerDetail)
+                            setIsDeleteModalOpen(true)
+                          }}
+                          className="rounded-xl flex items-center gap-1.5 whitespace-nowrap px-4 py-2 cursor-pointer"
+                        >
+                          <Trash className="w-3.5 h-3.5" />
+                          Delete Customer
+                        </Button>
                       </div>
                     </div>
                   )}
