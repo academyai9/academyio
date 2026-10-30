@@ -175,30 +175,60 @@ export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
       return res.status(404).json({ message: `Webinar with ID "${id}" was not found.` })
     }
 
-    // 2. Cascade delete dependent records in PostgreSQL
-    // To avoid foreign key constraint violations, delete in child-to-parent order
+    // 2. Cascade delete dependent child records individually in PostgreSQL
+    // To prevent "cannot insert multiple commands into a prepared statement" and FK constraint violations:
     await pgConnection.raw(
-      `
-      DELETE FROM quiz_question WHERE quiz_id IN (SELECT id FROM webinar_quiz WHERE webinar_id = ?);
-      DELETE FROM quiz_attempt WHERE webinar_id = ?;
-      DELETE FROM webinar_certificate WHERE webinar_id = ?;
-      DELETE FROM webinar_quiz WHERE webinar_id = ?;
-      DELETE FROM webinar_resource WHERE webinar_id = ?;
-      DELETE FROM webinar_variant_mapping WHERE webinar_id = ?;
-      DELETE FROM customer_entitlement WHERE webinar_id = ?;
-      `,
-      [id, id, id, id, id, id, id]
-    )
+      `DELETE FROM quiz_question WHERE quiz_id IN (SELECT id FROM webinar_quiz WHERE webinar_id = ?)`,
+      [id]
+    ).catch(() => {})
 
-    // Clean up webinar_file if table exists
-    try {
-      await pgConnection.raw(`DELETE FROM webinar_file WHERE webinar_id = ?;`, [id])
-    } catch {
-      // Ignore if table does not exist
-    }
+    await pgConnection.raw(
+      `DELETE FROM quiz_attempt WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_certificate WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_quiz WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_resource WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_variant_mapping WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM customer_entitlement WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_file WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinar_credit_info WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    await pgConnection.raw(
+      `DELETE FROM webinarmodule_webinar_product_product WHERE webinar_id = ?`,
+      [id]
+    ).catch(() => {})
 
     // 3. Delete the webinar row itself
-    await pgConnection.raw(`DELETE FROM webinar WHERE id = ?;`, [id])
+    await pgConnection.raw(`DELETE FROM webinar WHERE id = ?`, [id])
 
     // 4. Clean up Medusa product if linked
     if (webinar.product_id) {

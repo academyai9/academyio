@@ -139,6 +139,9 @@ export default function WebinarsAdminPage() {
     transcript_content: "",
   })
 
+  // Delete Webinar Modal
+  const [webinarToDelete, setWebinarToDelete] = useState<{ id: string; title: string } | null>(null)
+
   // Resource Form
   const [isAddResourceOpen, setIsAddResourceOpen] = useState(false)
   const [newResource, setNewResource] = useState({
@@ -534,9 +537,14 @@ export default function WebinarsAdminPage() {
     }
   }
 
-  // Handle Delete Webinar
-  const handleDeleteWebinar = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to permanently delete webinar: "${title}"?\n\nThis will remove the webinar, associated resources, quizzes, and variants.`)) return
+  // Handle Delete Webinar Modal & Execution
+  const openDeleteWebinarModal = (id: string, title: string) => {
+    setWebinarToDelete({ id, title })
+  }
+
+  const confirmDeleteWebinar = async () => {
+    if (!webinarToDelete) return
+    const { id, title } = webinarToDelete
     setDeletingId(id)
     try {
       const res = await fetch(`/admin/webinars/${id}`, {
@@ -550,6 +558,7 @@ export default function WebinarsAdminPage() {
         if (selectedWebinarId === id) {
           setSelectedWebinarId("")
         }
+        setWebinarToDelete(null)
         await fetchWebinars()
       } else {
         const errorText = data.message || data.error || `Server returned error (${res.status})`
@@ -563,6 +572,10 @@ export default function WebinarsAdminPage() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const handleDeleteWebinar = (id: string, title: string) => {
+    openDeleteWebinarModal(id, title)
   }
 
   // Handle Save Purchase Option (Variant)
@@ -2520,6 +2533,61 @@ export default function WebinarsAdminPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE WEBINAR CONFIRMATION MODAL */}
+      {webinarToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-neutral-200 dark:border-neutral-800 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
+              <Heading level="h3" className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash className="w-5 h-5" />
+                <span>Delete Webinar</span>
+              </Heading>
+              <button
+                onClick={() => setWebinarToDelete(null)}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                Are you sure you want to permanently delete webinar <span className="text-red-600">"{webinarToDelete.title}"</span>?
+              </p>
+
+              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200 space-y-1.5 leading-relaxed">
+                <div className="font-bold flex items-center gap-1.5">
+                  <span>⚠️ Permanent Deletion</span>
+                </div>
+                <div>
+                  This will completely remove the webinar, associated resources, PDFs, quizzes, questions, attendance records, and purchase option variants from the database.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => setWebinarToDelete(null)}
+                className="rounded-xl border-neutral-200 dark:border-neutral-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="small"
+                disabled={Boolean(deletingId)}
+                onClick={confirmDeleteWebinar}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs"
+              >
+                {deletingId ? "Deleting..." : "Yes, Delete Webinar"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

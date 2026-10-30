@@ -1,4 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import WebinarModuleService from "../../../../modules/webinar/service"
 import { WEBINAR_MODULE } from "../../../../modules/webinar"
 
@@ -74,31 +75,54 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 }
 
 export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
-  const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
-  const { id } = req.params
+  try {
+    const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
+    const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+    const { id } = req.params
+    const force = req.query.force === "true" || req.query.force === "1"
 
-  const [existingPlan] = await webinarService.listSubscriptionPlans({ id })
-  if (!existingPlan) {
-    return res.status(404).json({ message: "Subscription plan not found" })
-  }
+    const [existingPlan] = await webinarService.listSubscriptionPlans({ id })
+    if (!existingPlan) {
+      return res.status(404).json({ message: "Subscription plan not found" })
+    }
 
-  // Check active subscribers
-  const activeSubs = await webinarService.listCustomerSubscriptions({
-    plan_id: id,
-    status: "active",
-  })
+    // Check active subscribers
+    const activeSubs = await webinarService.listCustomerSubscriptions({
+      plan_id: id,
+      status: "active",
+    })
 
-  if (activeSubs.length > 0) {
-    return res.status(400).json({
-      message: `Cannot delete plan "${existingPlan.name}" because it currently has ${activeSubs.length} active subscriber(s). Please archive the plan instead.`,
-      active_subscribers: activeSubs.length,
+    if (activeSubs.length > 0 && !force) {
+      return res.status(400).json({
+        message: `Plan "${existingPlan.name}" currently has ${activeSubs.length} active subscriber(s). Please confirm force deletion if you want to proceed.`,
+        active_subscribers: activeSubs.length,
+        requires_force: true,
+      })
+    }
+
+    // Ensure plan_id is nullable in case of older schema versions
+    await pgConnection.raw(
+      `ALTER TABLE customer_subscription ALTER COLUMN plan_id DROP NOT NULL;`
+    ).catch(() => {})
+
+    // Unlink any customer subscriptions referencing this plan so history is preserved without FK errors
+    await pgConnection.raw(
+      `UPDATE customer_subscription SET plan_id = NULL WHERE plan_id = ?`,
+      [id]
+    ).catch(() => {})
+
+    // Delete the subscription plan record
+    await pgConnection.raw(`DELETE FROM subscription_plan WHERE id = ?`, [id])
+
+    return res.json({
+      message: `Subscription plan "${existingPlan.name}" deleted successfully`,
+      deleted_id: id,
+      unlinked_subscribers: activeSubs.length,
+    })
+  } catch (error: any) {
+    console.error("[Delete Subscription Plan Error]:", error)
+    return res.status(500).json({
+      message: error.message || "Failed to delete subscription plan",
     })
   }
-
-  await webinarService.deleteSubscriptionPlans(id)
-
-  res.json({
-    message: "Subscription plan deleted successfully",
-    deleted_id: id,
-  })
 }

@@ -90,6 +90,8 @@ export default function SubscriptionsAdminPage() {
   // Plan Modal
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
+  const [planToDelete, setPlanToDelete] = useState<SubscriptionPlan | null>(null)
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false)
   const [planForm, setPlanForm] = useState({
     name: "",
     slug: "",
@@ -384,28 +386,32 @@ export default function SubscriptionsAdminPage() {
     }
   }
 
-  const handleDeletePlan = async (plan: SubscriptionPlan) => {
-    if (plan.active_subscribers_count && plan.active_subscribers_count > 0) {
-      alert(`Cannot delete "${plan.name}" because it has ${plan.active_subscribers_count} active subscriber(s). Please archive it instead.`)
-      return
-    }
+  const handleDeletePlan = (plan: SubscriptionPlan) => {
+    setPlanToDelete(plan)
+  }
 
-    if (!confirm(`Are you sure you want to delete plan "${plan.name}"?`)) return
-
+  const confirmDeletePlan = async () => {
+    if (!planToDelete) return
+    setIsDeletingPlan(true)
     try {
-      const res = await fetch(`/admin/subscriptions/${plan.id}`, {
+      const hasSubscribers = Boolean(planToDelete.active_subscribers_count && planToDelete.active_subscribers_count > 0)
+      const url = `/admin/subscriptions/${planToDelete.id}${hasSubscribers ? "?force=true" : ""}`
+      const res = await fetch(url, {
         method: "DELETE",
         headers: getAuthHeaders(),
         credentials: "include",
       })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Failed to delete plan")
+        throw new Error(data.message || "Failed to delete plan")
       }
-      setStatusMessage({ type: "success", text: `Plan "${plan.name}" deleted` })
+      setStatusMessage({ type: "success", text: `Plan "${planToDelete.name}" deleted successfully` })
+      setPlanToDelete(null)
       fetchData()
     } catch (e: any) {
-      setStatusMessage({ type: "error", text: e.message })
+      setStatusMessage({ type: "error", text: e.message || "Failed to delete plan" })
+    } finally {
+      setIsDeletingPlan(false)
     }
   }
 
@@ -1485,6 +1491,70 @@ export default function SubscriptionsAdminPage() {
           </div>
         </div>
       )}
+      {/* Delete Plan Confirmation Modal */}
+      {planToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-neutral-200 dark:border-neutral-800 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
+              <Heading level="h3" className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash className="w-5 h-5" />
+                <span>Delete Subscription Plan</span>
+              </Heading>
+              <button
+                onClick={() => setPlanToDelete(null)}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                Are you sure you want to permanently delete plan <span className="text-red-600">"{planToDelete.name}"</span> (${planToDelete.price}/{planToDelete.billing_interval})?
+              </p>
+
+              {planToDelete.active_subscribers_count && planToDelete.active_subscribers_count > 0 ? (
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 space-y-1.5 leading-relaxed">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>⚠️ Warning: Active Subscribers Detected</span>
+                  </div>
+                  <div>
+                    This plan currently has <strong>{planToDelete.active_subscribers_count} active subscriber(s)</strong> enrolled.
+                  </div>
+                  <div className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Deleting this plan will unlink these subscriber records so they no longer reference this plan ID, while keeping their customer billing/access history intact.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  This plan package will be permanently deleted from the database. Customers will no longer see or be billed for this plan.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => setPlanToDelete(null)}
+                className="rounded-xl border-neutral-200 dark:border-neutral-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="small"
+                disabled={isDeletingPlan}
+                onClick={confirmDeletePlan}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs"
+              >
+                {isDeletingPlan ? "Deleting Plan..." : "Yes, Delete Plan"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk Delete Subscriptions Modal */}
       {showBulkDeleteSubModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
