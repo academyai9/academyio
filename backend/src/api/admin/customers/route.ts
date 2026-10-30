@@ -1,1 +1,1 @@
-export { GET } from "../customers-directory/route"
+export { GET, POST } from "../customers-directory/route"

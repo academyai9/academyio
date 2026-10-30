@@ -83,9 +83,9 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
   const customersItem = {
     to: "/customers",
     label: "Customers",
-    icon: /* @__PURE__ */ jsx16(Users, {}),
+    icon: findExt("/customers")?.icon || /* @__PURE__ */ jsx16(Users, {}),
     items: [
-      { label: "Customer Directory", to: "/customers" },
+      { label: "Customers List", to: "/customers" },
       { label: "Registrations & Access", to: "/entitlements" },
       { label: "Customer Groups", to: "/customer-groups" }
     ]

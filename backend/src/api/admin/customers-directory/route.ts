@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { getSharedPool } from "../../../utils/db-pool"
 import crypto from "crypto"
+import scryptKdf from "scrypt-kdf"
 
 const pool = getSharedPool()
 
@@ -206,6 +207,135 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   } catch (error: any) {
     console.error("Error in /admin/customers-directory GET:", error)
     res.status(500).json({ message: "Failed to load customers", error: error.message })
+  } finally {
+    client.release()
+  }
+}
+
+export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
+  const body = req.body as Record<string, any>
+  const email = (body.email as string || "").trim().toLowerCase()
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ message: "Valid email address is required." })
+  }
+
+  const client = await pool.connect()
+  try {
+    // 1. Check email uniqueness
+    const dupCheck = await client.query(
+      `SELECT id FROM customer WHERE LOWER(email) = $1 AND deleted_at IS NULL LIMIT 1`,
+      [email]
+    )
+    if (dupCheck.rows.length > 0) {
+      return res.status(400).json({ message: `Customer with email "${email}" already exists.` })
+    }
+
+    // 2. Validate PTIN format if provided
+    let ptin = body.ptin ? String(body.ptin).trim().toUpperCase() : null
+    if (ptin && !/^P\d{8}$/.test(ptin)) {
+      return res.status(400).json({
+        message: "Invalid PTIN format. Must start with 'P' followed by 8 digits (e.g. P12345678).",
+      })
+    }
+
+    const firstName = body.first_name ? String(body.first_name).trim() : null
+    const lastName = body.last_name ? String(body.last_name).trim() : null
+    const phone = body.phone ? String(body.phone).trim() : null
+    const companyName = body.company_name ? String(body.company_name).trim() : null
+    const cfpId = body.cfp_id ? String(body.cfp_id).trim() : null
+    const licenseType = body.license_type ? String(body.license_type).trim() : "CPA"
+    const accountStatus = body.account_status || "active"
+    const initialPassword = body.password ? String(body.password).trim() : null
+
+    if (initialPassword && initialPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long." })
+    }
+
+    const metadata = {
+      ptin,
+      cfp_id: cfpId,
+      license_type: licenseType,
+      account_status: accountStatus,
+      company_name: companyName,
+      phone,
+    }
+
+    const customerId = "cus_" + crypto.randomBytes(12).toString("hex")
+
+    await client.query("BEGIN")
+
+    // 3. Insert customer record
+    await client.query(
+      `INSERT INTO customer (
+        id, email, first_name, last_name, phone, company_name, has_account, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+      [
+        customerId,
+        email,
+        firstName,
+        lastName,
+        phone,
+        companyName,
+        Boolean(initialPassword),
+        JSON.stringify(metadata),
+      ]
+    )
+
+    // 4. If password is provided, configure auth_identity & provider_identity
+    if (initialPassword) {
+      const passwordHash = (await scryptKdf.kdf(initialPassword, { logN: 15, r: 8, p: 1 })).toString("base64")
+      const authId = "authid_" + crypto.randomBytes(12).toString("hex")
+
+      await client.query(
+        `INSERT INTO auth_identity (id, app_metadata, created_at, updated_at)
+         VALUES ($1, $2, NOW(), NOW())`,
+        [authId, JSON.stringify({ customer_id: customerId })]
+      )
+
+      const piId = "pi_" + crypto.randomBytes(12).toString("hex")
+      await client.query(
+        `INSERT INTO provider_identity (id, entity_id, provider, auth_identity_id, provider_metadata, created_at, updated_at)
+         VALUES ($1, $2, 'emailpass', $3, $4, NOW(), NOW())`,
+        [piId, email, authId, JSON.stringify({ password: passwordHash })]
+      )
+    }
+
+    // 5. Log audit
+    const adminUser = (req as any).auth_context?.actor_id || "admin"
+    const logId = "cal_" + crypto.randomBytes(12).toString("hex")
+    await client.query(
+      `INSERT INTO customer_audit_log (id, customer_id, admin_id, admin_email, action, details, created_at)
+       VALUES ($1, $2, $3, $4, 'CUSTOMER_CREATED_BY_ADMIN', $5, NOW())`,
+      [
+        logId,
+        customerId,
+        adminUser,
+        "admin@academyio.com",
+        JSON.stringify({ email, created_by_admin: true }),
+      ]
+    )
+
+    await client.query("COMMIT")
+
+    return res.status(201).json({
+      success: true,
+      message: `Customer account ${email} created successfully.`,
+      customer: {
+        id: customerId,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        company_name: companyName,
+        account_status: accountStatus,
+        has_account: Boolean(initialPassword),
+        metadata,
+      },
+    })
+  } catch (error: any) {
+    await client.query("ROLLBACK")
+    console.error("Error creating customer in /admin/customers-directory POST:", error)
+    return res.status(500).json({ message: "Failed to create customer", error: error.message })
   } finally {
     client.release()
   }

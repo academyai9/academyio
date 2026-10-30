@@ -231,10 +231,131 @@ export default function CustomersAdminPage() {
   const [deleteTargetCustomer, setDeleteTargetCustomer] = useState<CustomerSummary | null>(null)
   const [deletingCustomer, setDeletingCustomer] = useState(false)
 
+  // Create Customer Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    company_name: "",
+    ptin: "",
+    cfp_id: "",
+    license_type: "CPA",
+    account_status: "active",
+    password: "",
+  })
+  const [savingCreate, setSavingCreate] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
   // Bulk Selection & Delete State
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([])
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
   const [deletingBulk, setDeletingBulk] = useState(false)
+
+  // Handle Create Customer Submit
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingCreate(true)
+    setCreateError(null)
+
+    if (createForm.ptin.trim() && !/^P\d{8}$/i.test(createForm.ptin.trim())) {
+      setCreateError("Invalid PTIN format. Must start with 'P' followed by 8 digits (e.g., P12345678).")
+      setSavingCreate(false)
+      return
+    }
+
+    try {
+      const res = await fetch("/admin/customers-directory", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify(createForm),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setNotification({ type: "success", message: `Customer account "${createForm.email}" created successfully.` })
+        setIsCreateModalOpen(false)
+        setCreateForm({
+          first_name: "",
+          last_name: "",
+          email: "",
+          phone: "",
+          company_name: "",
+          ptin: "",
+          cfp_id: "",
+          license_type: "CPA",
+          account_status: "active",
+          password: "",
+        })
+        loadCustomers()
+      } else {
+        setCreateError(data.message || "Failed to create customer account.")
+      }
+    } catch (e: any) {
+      setCreateError(e.message || "Network error creating customer.")
+    } finally {
+      setSavingCreate(false)
+    }
+  }
+
+  // Handle Export CSV
+  const handleExportCSV = () => {
+    if (!customers || customers.length === 0) {
+      alert("No customer records currently available to export.")
+      return
+    }
+
+    const headers = [
+      "Customer ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Phone",
+      "Company",
+      "PTIN",
+      "CFP ID",
+      "Primary License",
+      "Account Status",
+      "Subscription Status",
+      "Subscription Plan",
+      "Lifetime Orders",
+      "Registration Date",
+      "Last Login",
+    ]
+
+    const csvRows = [headers.join(",")]
+
+    customers.forEach((c) => {
+      const row = [
+        `"${c.id}"`,
+        `"${(c.first_name || "").replace(/"/g, '""')}"`,
+        `"${(c.last_name || "").replace(/"/g, '""')}"`,
+        `"${(c.email || "").replace(/"/g, '""')}"`,
+        `"${(c.phone || "").replace(/"/g, '""')}"`,
+        `"${(c.company_name || "").replace(/"/g, '""')}"`,
+        `"${c.ptin || ""}"`,
+        `"${c.cfp_id || ""}"`,
+        `"${c.license_type || "CPA"}"`,
+        `"${c.account_status}"`,
+        `"${c.subscription_status}"`,
+        `"${(c.subscription_plan_name || "").replace(/"/g, '""')}"`,
+        `"${c.total_orders}"`,
+        `"${c.created_at ? new Date(c.created_at).toISOString() : ""}"`,
+        `"${c.last_login_at ? new Date(c.last_login_at).toISOString() : ""}"`,
+      ]
+      csvRows.push(row.join(","))
+    })
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute("download", `academyio_customers_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   // Load Customers List
   const loadCustomers = async () => {
@@ -631,91 +752,192 @@ export default function CustomersAdminPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 pb-5">
         <div>
+          <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+            Super Admin • Customers • Customers List
+          </div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
               <UserGroup className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                Customer Management
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Manage registered customer accounts, professional credentials, order history, subscriptions, and password security.
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                  Customers List & Management
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {totalCount} Total Accounts
+                </span>
+              </div>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Browse all registered store customers, edit profiles, manage credentials & passwords, and delete accounts safely.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <AdminThemeToggle />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="primary"
+            size="small"
+            onClick={() => {
+              setCreateError(null)
+              setIsCreateModalOpen(true)
+            }}
+            className="flex items-center gap-1.5 rounded-xl shadow-xs px-3.5 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Customer</span>
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 rounded-xl cursor-pointer"
+            title="Download CSV export of customers list"
+          >
+            <ArrowDownTray className="w-4 h-4 text-neutral-500" />
+            <span>Export CSV</span>
+          </Button>
+
           <Button
             variant="secondary"
             size="small"
             onClick={() => loadCustomers()}
             disabled={loading}
-            className="flex items-center gap-2 rounded-xl"
+            className="flex items-center gap-1.5 rounded-xl cursor-pointer"
           >
             <ArrowPath className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            <span>Refresh</span>
           </Button>
+
+          <AdminThemeToggle />
         </div>
       </div>
 
-      {/* Global Metrics Bar */}
+      {/* Global Metrics Bar (Interactive Click-to-Filter) */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setStatusFilter("all")
+            setSubscriptionFilter("all")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            statusFilter === "all" && subscriptionFilter === "all"
+              ? "border-blue-500 bg-blue-50/40 dark:bg-blue-950/30 ring-2 ring-blue-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Total</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Total</span>
             <UserGroup className="w-4 h-4 text-blue-500" />
           </div>
           <div className="text-2xl font-bold text-neutral-900 dark:text-white">{metrics.total}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">Registered accounts</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">All accounts (reset)</div>
+        </button>
 
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setStatusFilter(statusFilter === "active" ? "all" : "active")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            statusFilter === "active"
+              ? "border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Active</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Active</span>
             <CheckCircle className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{metrics.active}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">In good standing</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">Filter active accounts</div>
+        </button>
 
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            statusFilter === "inactive"
+              ? "border-amber-500 bg-amber-50/40 dark:bg-amber-950/30 ring-2 ring-amber-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Inactive</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Inactive</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{metrics.inactive}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">Deactivated accounts</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">Filter deactivated</div>
+        </button>
 
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setStatusFilter(statusFilter === "suspended" ? "all" : "suspended")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            statusFilter === "suspended"
+              ? "border-rose-500 bg-rose-50/40 dark:bg-rose-950/30 ring-2 ring-rose-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Suspended</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Suspended</span>
             <XMark className="w-4 h-4 text-rose-500" />
           </div>
           <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{metrics.suspended}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">Access blocked</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">Filter blocked access</div>
+        </button>
 
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setSubscriptionFilter(subscriptionFilter === "active" ? "all" : "active")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            subscriptionFilter === "active"
+              ? "border-purple-500 bg-purple-50/40 dark:bg-purple-950/30 ring-2 ring-purple-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Subscribers</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Subscribers</span>
             <Sparkles className="w-4 h-4 text-purple-500" />
           </div>
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{metrics.subscribed}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">Active passes</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">Filter active passes</div>
+        </button>
 
-        <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 shadow-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setSortBy("orders")
+            setSortOrder("desc")
+            setPageIndex(0)
+          }}
+          className={`p-4 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+            sortBy === "orders"
+              ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20"
+              : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          }`}
+        >
           <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider">Orders</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Orders</span>
             <ShoppingBag className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{metrics.total_orders}</div>
-          <div className="text-xs text-neutral-400 mt-0.5">Lifetime orders</div>
-        </div>
+          <div className="text-[11px] text-neutral-400 mt-0.5">Sort by order volume</div>
+        </button>
       </div>
 
       {/* Search & Filters Card */}
@@ -805,6 +1027,25 @@ export default function CustomersAdminPage() {
                 <option value="CPA">CPA</option>
               </select>
             </div>
+
+            {(statusFilter !== "all" || subscriptionFilter !== "all" || designationFilter !== "all" || searchQuery) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("all")
+                  setSubscriptionFilter("all")
+                  setDesignationFilter("all")
+                  setSearchQuery("")
+                  setPageIndex(0)
+                  setTimeout(loadCustomers, 0)
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-semibold hover:bg-rose-100 cursor-pointer flex items-center gap-1"
+                title="Clear all active filters"
+              >
+                <XMark className="w-3.5 h-3.5" />
+                <span>Reset Filters</span>
+              </button>
+            )}
           </div>
 
           {/* Sort By & Order */}
@@ -2048,6 +2289,189 @@ export default function CustomersAdminPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* NEW CUSTOMER MODAL                                                        */}
+      {/* ========================================================================= */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-white">Create New Customer</h3>
+                  <p className="text-xs text-neutral-500">Register customer account and professional credentials</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1 cursor-pointer"
+              >
+                <XMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            {createError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
+                <ExclamationCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCustomer} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">First Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John"
+                    value={createForm.first_name}
+                    onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Doe"
+                    value={createForm.last_name}
+                    onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. customer@example.com"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="(555) 000-0000"
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">Company / Firm</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme CPA Group"
+                    value={createForm.company_name}
+                    onChange={(e) => setCreateForm({ ...createForm, company_name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">IRS PTIN (P + 8 digits)</label>
+                  <input
+                    type="text"
+                    placeholder="P00000000"
+                    value={createForm.ptin}
+                    onChange={(e) => setCreateForm({ ...createForm, ptin: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">CFP Board ID#</label>
+                  <input
+                    type="text"
+                    placeholder="123456"
+                    value={createForm.cfp_id}
+                    onChange={(e) => setCreateForm({ ...createForm, cfp_id: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">Primary Credential</label>
+                  <select
+                    value={createForm.license_type}
+                    onChange={(e) => setCreateForm({ ...createForm, license_type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  >
+                    <option value="CPA">CPA (Certified Public Accountant)</option>
+                    <option value="EA">EA (Enrolled Agent)</option>
+                    <option value="CFP">CFP (Certified Financial Planner)</option>
+                    <option value="JD">Tax Attorney / JD / LLM</option>
+                    <option value="Corporate">Corporate Controller / CFO</option>
+                    <option value="Other">Other Accounting Professional</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">Account Status</label>
+                  <select
+                    value={createForm.account_status}
+                    onChange={(e) => setCreateForm({ ...createForm, account_status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  >
+                    <option value="active">Active (Access Granted)</option>
+                    <option value="inactive">Inactive (Deactivated)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-neutral-600 dark:text-neutral-300 font-medium mb-1">
+                  Initial Password <span className="text-neutral-400 font-normal">(optional, min 8 characters)</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="small"
+                  disabled={savingCreate}
+                  className="rounded-xl px-5 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                >
+                  {savingCreate ? "Creating Customer..." : "Create Customer"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* EDIT CUSTOMER MODAL                                                       */}
       {/* ========================================================================= */}
       {isEditModalOpen && (
@@ -2184,6 +2608,31 @@ export default function CustomersAdminPage() {
                     <option value="suspended">Suspended (Blocked)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Password Shortcut within Edit Modal */}
+              <div className="pt-2 pb-1 flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/60 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                <div className="flex items-center gap-2">
+                  <LockClosedSolid className="w-4 h-4 text-amber-500" />
+                  <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                    Need to set or update this customer's password?
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false)
+                    if (editCustomer) {
+                      setPasswordTargetCustomer(editCustomer)
+                      setNewPassword("")
+                      setPasswordError(null)
+                      setIsSetPasswordModalOpen(true)
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  Set Password →
+                </button>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-neutral-800">
