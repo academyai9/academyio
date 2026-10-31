@@ -67,8 +67,19 @@ export default function SinglePageCheckoutView({
     const active = initialCart.payment_collection?.payment_sessions?.find(
       (s: any) => s.status === "pending" || s.status === "authorized"
     )
-    return active?.provider_id || availablePaymentMethods?.[0]?.id || "pp_system_default"
+    if (active?.provider_id) return active.provider_id
+    const stripeMethod = availablePaymentMethods?.find((m: any) => isStripeLike(m.id))
+    return stripeMethod?.id || availablePaymentMethods?.[0]?.id || "pp_stripe_stripe"
   })
+
+  // Stripe Session State Tracking
+  const stripeSession = cart.payment_collection?.payment_sessions?.find(
+    (s: any) => isStripeLike(s.provider_id) && Boolean(s.data?.client_secret)
+  )
+  const stripeClientSecret = (stripeSession?.data?.client_secret as string) || null
+
+  const [isInitiatingStripe, setIsInitiatingStripe] = useState(false)
+  const [stripeInitError, setStripeInitError] = useState<string | null>(null)
 
   // Customer & Registration-aligned Billing details state
   const initialFullName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
@@ -115,7 +126,41 @@ export default function SinglePageCheckoutView({
     }
   }, [cart?.items?.length, countryCode, router])
 
-  // Handle quantity modification (stepper +/-)
+  // Automatically ensure Stripe session has a valid client_secret when Stripe is selected
+  const ensureStripePaymentSession = async (currentCart: HttpTypes.StoreCart) => {
+    const existing = currentCart.payment_collection?.payment_sessions?.find(
+      (s: any) => isStripeLike(s.provider_id) && Boolean(s.data?.client_secret)
+    )
+    if (existing?.data?.client_secret) return
+
+    setIsInitiatingStripe(true)
+    setStripeInitError(null)
+    try {
+      await initiatePaymentSession(currentCart, { provider_id: "pp_stripe_stripe" })
+      const refreshed = await retrieveCart()
+      if (refreshed) {
+        setCart(refreshed)
+      }
+    } catch (err: any) {
+      console.warn("Notice: could not auto-initiate Stripe session:", err?.message)
+      setStripeInitError("Could not initialize Stripe card gateway. Please try clicking the card option again.")
+    } finally {
+      setIsInitiatingStripe(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isStripeLike(selectedPaymentMethod)) {
+      const existing = cart.payment_collection?.payment_sessions?.find(
+        (s: any) => isStripeLike(s.provider_id) && Boolean(s.data?.client_secret)
+      )
+      if (!existing && !isInitiatingStripe) {
+        ensureStripePaymentSession(cart)
+      }
+    }
+  }, [selectedPaymentMethod, cart.payment_collection?.payment_sessions?.length])
+
+  // Handle quantity modification (stepper +/-) with instant optimistic update
   const handleUpdateQuantity = async (lineId: string, currentQty: number, delta: number) => {
     const newQty = currentQty + delta
     if (newQty <= 0) {
@@ -126,42 +171,66 @@ export default function SinglePageCheckoutView({
     setUpdatingLineId(lineId)
     setSubmitError(null)
 
+    // 1. Instant optimistic update in React state for immediate response
+    setCart((prev) => {
+      if (!prev || !prev.items) return prev
+      return {
+        ...prev,
+        items: prev.items.map((i) =>
+          i.id === lineId ? { ...i, quantity: newQty } : i
+        ),
+      }
+    })
+
     try {
-      await updateLineItem({ lineId, quantity: newQty })
-      const refreshed = await retrieveCart()
+      // 2. High-speed single server action
+      const refreshed = await updateLineItem({ lineId, quantity: newQty })
       if (!refreshed || !refreshed.items || refreshed.items.length === 0) {
         setCart((prev) => ({ ...prev, items: [] }))
         router.push(`/${countryCode}/webinars/upcoming`)
         return
       }
       setCart(refreshed)
-      router.refresh()
     } catch (err: any) {
       console.error("Failed to update item quantity:", err)
       setSubmitError(err?.message || "Failed to update item quantity. Please try again.")
+      // Revert if error
+      const current = await retrieveCart()
+      if (current) setCart(current)
     } finally {
       setUpdatingLineId(null)
     }
   }
 
-  // Handle removing a webinar line item
+  // Handle removing a webinar line item with instant optimistic update
   const handleRemoveLineItem = async (lineId: string) => {
     setUpdatingLineId(lineId)
     setSubmitError(null)
 
+    // 1. Instant optimistic removal in React state
+    setCart((prev) => {
+      if (!prev || !prev.items) return prev
+      return {
+        ...prev,
+        items: prev.items.filter((i) => i.id !== lineId),
+      }
+    })
+
     try {
-      await deleteLineItem(lineId)
-      const refreshed = await retrieveCart()
+      // 2. High-speed single server action
+      const refreshed = await deleteLineItem(lineId)
       if (!refreshed || !refreshed.items || refreshed.items.length === 0) {
         setCart((prev) => ({ ...prev, items: [] }))
         router.push(`/${countryCode}/webinars/upcoming`)
         return
       }
       setCart(refreshed)
-      router.refresh()
     } catch (err: any) {
       console.error("Failed to remove item:", err)
       setSubmitError(err?.message || "Failed to remove item from order. Please try again.")
+      // Revert if error
+      const current = await retrieveCart()
+      if (current) setCart(current)
     } finally {
       setUpdatingLineId(null)
     }
@@ -171,15 +240,26 @@ export default function SinglePageCheckoutView({
   const handlePaymentMethodSelect = async (methodId: string) => {
     setSelectedPaymentMethod(methodId)
     setSubmitError(null)
+
+    if (isStripeLike(methodId)) {
+      const existing = cart.payment_collection?.payment_sessions?.find(
+        (s: any) => isStripeLike(s.provider_id) && Boolean(s.data?.client_secret)
+      )
+      if (!existing) {
+        setIsInitiatingStripe(true)
+      }
+    }
+
     try {
       await initiatePaymentSession(cart, { provider_id: methodId })
       const refreshed = await retrieveCart()
       if (refreshed) {
         setCart(refreshed)
       }
-      router.refresh()
     } catch (e: any) {
       console.warn("Notice: payment session update:", e?.message)
+    } finally {
+      setIsInitiatingStripe(false)
     }
   }
 
@@ -197,7 +277,8 @@ export default function SinglePageCheckoutView({
       await applyPromotions(newCodes)
       setPromoFeedback({ type: "success", text: `Promotion code "${promoCodeInput.trim()}" applied!` })
       setPromoCodeInput("")
-      router.refresh()
+      const refreshed = await retrieveCart()
+      if (refreshed) setCart(refreshed)
     } catch (err: any) {
       setPromoFeedback({ type: "error", text: err?.message || "Invalid or expired promotion code." })
     } finally {
@@ -214,7 +295,8 @@ export default function SinglePageCheckoutView({
       )
       await applyPromotions(remainingCodes)
       setPromoFeedback({ type: "success", text: `Promotion code removed.` })
-      router.refresh()
+      const refreshed = await retrieveCart()
+      if (refreshed) setCart(refreshed)
     } catch (err: any) {
       setPromoFeedback({ type: "error", text: err?.message || "Failed to remove discount." })
     } finally {
@@ -299,50 +381,57 @@ export default function SinglePageCheckoutView({
         }
       }
 
-      // 2. If Stripe payment method is selected and Stripe confirmation is ready
-      if (isStripeLike(selectedPaymentMethod) && stripeConfirmFnRef.current) {
+      // 2. If Stripe payment method is selected
+      if (isStripeLike(selectedPaymentMethod)) {
+        if (!stripeConfirmFnRef.current) {
+          setSubmitError("Please enter your card number, expiration date, and CVC before completing enrollment.")
+          setIsSubmitting(false)
+          return
+        }
+
         const session =
           cart.payment_collection?.payment_sessions?.find(
-            (s: any) => s.status === "pending" && isStripeLike(s.provider_id)
-          ) ||
-          cart.payment_collection?.payment_sessions?.find((s: any) =>
-            isStripeLike(s.provider_id)
+            (s: any) => isStripeLike(s.provider_id) && Boolean(s.data?.client_secret)
           )
 
         const clientSecret = session?.data?.client_secret as string | undefined
-        if (clientSecret) {
-          const name =
-            billingForm.fullName ||
-            `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
-            "Valued Customer"
+        if (!clientSecret) {
+          setSubmitError("Payment session is initializing. Please wait a moment and click Complete Enrollment again.")
+          setIsSubmitting(false)
+          return
+        }
 
-          const { error: stripeError, paymentIntent } =
-            await stripeConfirmFnRef.current(clientSecret, {
-              name,
-              email: billingForm.email || customer.email,
-              phone: billingForm.phone || customer.phone || undefined,
-              address: {
-                city: "New York",
-                country: (countryCode || "us").toUpperCase(),
-                line1: "Digital Delivery",
-                postal_code: "10001",
-                state: "NY",
-              },
-            })
+        const name =
+          billingForm.fullName ||
+          `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
+          "Valued Customer"
 
-          if (stripeError) {
-            const pi = stripeError.payment_intent
-            if (
-              !pi ||
-              (pi.status !== "requires_capture" && pi.status !== "succeeded")
-            ) {
-              setSubmitError(
-                stripeError.message ||
-                  "Card payment confirmation failed. Please check your card details."
-              )
-              setIsSubmitting(false)
-              return
-            }
+        const { error: stripeError, paymentIntent } =
+          await stripeConfirmFnRef.current(clientSecret, {
+            name,
+            email: billingForm.email || customer.email,
+            phone: billingForm.phone || customer.phone || undefined,
+            address: {
+              city: "New York",
+              country: (countryCode || "us").toUpperCase(),
+              line1: "Digital Delivery",
+              postal_code: "10001",
+              state: "NY",
+            },
+          })
+
+        if (stripeError) {
+          const pi = stripeError.payment_intent
+          if (
+            !pi ||
+            (pi.status !== "requires_capture" && pi.status !== "succeeded")
+          ) {
+            setSubmitError(
+              stripeError.message ||
+                "Card payment confirmation failed. Please check your card details."
+            )
+            setIsSubmitting(false)
+            return
           }
         }
       }
@@ -810,6 +899,9 @@ export default function SinglePageCheckoutView({
                       {/* If Stripe is selected, render isolated Stripe Card Field */}
                       {isSelected && isStripe && (
                         <StripeCardField
+                          clientSecret={stripeClientSecret}
+                          isLoading={isInitiatingStripe}
+                          error={stripeInitError}
                           onConfirmReady={(fn) => {
                             stripeConfirmFnRef.current = fn
                           }}

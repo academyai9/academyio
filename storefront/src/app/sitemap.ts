@@ -129,7 +129,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .filter((w) => w && w.slug)
         .map((w) => ({
           url: `${baseUrl}/${countryCode}/webinars/${w.slug}`,
-          lastModified: w.updated_at ? new Date(w.updated_at) : now,
+          lastModified: (w as any).updated_at ? new Date((w as any).updated_at) : now,
           changeFrequency: "weekly" as const,
           priority: 0.8,
         }))

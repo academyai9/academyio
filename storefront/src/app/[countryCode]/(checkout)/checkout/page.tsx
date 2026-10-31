@@ -103,23 +103,25 @@ export default async function Checkout(props: CheckoutPageProps) {
       }
     }
 
-    // Fetch available payment methods
-    const paymentMethods = (await listCartPaymentMethods(cart.region?.id ?? "")) || []
+    // Parallel fetch: available payment methods & webinar catalog
+    const [paymentMethods, webinarsData] = await Promise.all([
+      listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
+      getWebinars({ limit: 50 }).catch(() => ({ webinars: [] })),
+    ])
+    const webinars = webinarsData.webinars || []
 
-    // Ensure at least one payment session is initiated
-    const activeSession = cart.payment_collection?.payment_sessions?.find(
-      (s: any) => s.status === "pending" || s.status === "authorized"
+    // Ensure Stripe payment session is ready upfront with client_secret
+    const activeStripeSession = cart.payment_collection?.payment_sessions?.find(
+      (s: any) => isStripeLike(s.provider_id) && s.data?.client_secret
     )
-    if (!activeSession && paymentMethods.length > 0) {
-      const defaultMethod =
-        paymentMethods.find((m: any) => isStripeLike(m.id)) ||
-        paymentMethods.find((m: any) => m.id === "pp_system_default") ||
-        paymentMethods[0]
-      if (defaultMethod) {
+    if (!activeStripeSession && paymentMethods.length > 0) {
+      const stripeMethod = paymentMethods.find((m: any) => isStripeLike(m.id))
+      const targetMethod = stripeMethod || paymentMethods[0]
+      if (targetMethod) {
         const res = await sdk.store.payment
           .initiatePaymentSession(
             cart,
-            { provider_id: defaultMethod.id },
+            { provider_id: targetMethod.id },
             {},
             headers
           )
@@ -133,9 +135,6 @@ export default async function Checkout(props: CheckoutPageProps) {
         }
       }
     }
-
-    // 4. Fetch webinar items for rich order summary details
-    const { webinars = [] } = await getWebinars({ limit: 100 })
 
     return (
       <PaymentWrapper cart={cart}>
@@ -151,8 +150,11 @@ export default async function Checkout(props: CheckoutPageProps) {
   } catch (err) {
     console.error("Error preparing single-page checkout:", err)
     // Fallback: render view with current cart state
-    const paymentMethods = (await listCartPaymentMethods(cart.region?.id ?? "")) || []
-    const { webinars = [] } = await getWebinars({ limit: 100 })
+    const [paymentMethods, webinarsData] = await Promise.all([
+      listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
+      getWebinars({ limit: 50 }).catch(() => ({ webinars: [] })),
+    ])
+    const webinars = webinarsData.webinars || []
 
     return (
       <PaymentWrapper cart={cart}>

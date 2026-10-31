@@ -206,7 +206,7 @@ export default async function HomePage(props: {
       <AccreditationTrustBar
         organizations={orgsData.organizations}
         globalEnabled={orgsData.global_enabled}
-        settings={orgsData.settings}
+        settings={(orgsData as any).settings}
       />
 
       {/* Self-Study Learning Section */}
@@ -289,7 +289,7 @@ export default async function HomePage(props: {
       <OtherInfoSection
         items={otherInfoData.items}
         globalEnabled={otherInfoData.global_enabled}
-        settings={otherInfoData.settings}
+        settings={(otherInfoData as any).settings}
       />
 
       {/* Client Testimonials Section */}

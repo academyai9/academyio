@@ -91,7 +91,7 @@ sdk.client.fetch = async <T>(
       headers: newHeaders,
       signal: init?.signal || controller.signal,
     })
-    return await Promise.race([fetchPromise, timeoutPromise])
+    return (await Promise.race([fetchPromise, timeoutPromise])) as T
   } finally {
     clearTimeout(timeoutId)
   }

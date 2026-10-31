@@ -274,6 +274,8 @@ export async function updateLineItem({
       revalidateTag(fulfillmentCacheTag)
     })
     .catch(medusaError)
+
+  return await retrieveCart(cartId)
 }
 
 export async function deleteLineItem(lineId: string) {
@@ -301,6 +303,8 @@ export async function deleteLineItem(lineId: string) {
       revalidateTag(fulfillmentCacheTag)
     })
     .catch(medusaError)
+
+  return await retrieveCart(cartId)
 }
 
 export async function setShippingMethod({
