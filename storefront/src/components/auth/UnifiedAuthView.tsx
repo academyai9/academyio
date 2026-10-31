@@ -164,7 +164,7 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
     }
 
     const formData = new FormData()
-    formData.append("email", email.trim())
+    formData.append("email", email.trim().toLowerCase())
     formData.append("password", password)
 
     try {
@@ -262,7 +262,7 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
     formData.append("full_name", trimmedName)
     formData.append("first_name", firstName)
     formData.append("last_name", lastName)
-    formData.append("email", trimmedEmail)
+    formData.append("email", trimmedEmail.toLowerCase())
     formData.append("password", password)
     formData.append("phone", trimmedPhone)
     formData.append("company_name", companyName.trim())

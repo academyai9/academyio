@@ -19,8 +19,16 @@ import { Pool } from "pg"
 import { verifyTurnstileToken } from "@lib/util/verify-turnstile"
 import { fetchWithTimeout } from "@lib/util/fetch"
 
+const DB_CONNECTION_STRING =
+  process.env.DATABASE_URL ||
+  "postgresql://neondb_owner:npg_eVfLTi3pF5CE@ep-calm-meadow-b4nc559a-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
+  connectionString: DB_CONNECTION_STRING,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 4000,
+  idleTimeoutMillis: 10000,
+  max: 5,
 })
 
 export const retrieveCustomer =
@@ -429,8 +437,8 @@ export async function login(_currentState: unknown, formData: FormData) {
     return "Please enter both your email address and password."
   }
 
+  // 1. Optional check if account is suspended or inactive (isolated & non-blocking)
   try {
-    // Check if account is suspended or inactive before completing login
     const client = await pool.connect()
     try {
       const statusCheck = await client.query(
@@ -444,35 +452,19 @@ export async function login(_currentState: unknown, formData: FormData) {
     } finally {
       client.release()
     }
+  } catch (statusErr) {
+    console.warn("Notice: optional account status check skipped:", statusErr)
+  }
 
-    const token = await sdk.auth.login("customer", "emailpass", { email, password })
-    if (token) {
-      // Record last login timestamp
-      const logClient = await pool.connect()
-      try {
-        await logClient.query(
-          `UPDATE customer 
-           SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{last_login_at}', to_jsonb(NOW()::text)),
-               updated_at = NOW()
-           WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
-          [email]
-        )
-      } catch (err) {
-        console.warn("Notice: could not record last_login_at:", err)
-      } finally {
-        logClient.release()
-      }
-
-      await setAuthToken(token as string)
-      const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
-    } else {
-      return "Unable to log in. Please verify your credentials."
-    }
+  // 2. Core Authentication with Medusa Backend
+  let token: string | null = null
+  try {
+    token = (await sdk.auth.login("customer", "emailpass", { email, password })) as string
   } catch (error: any) {
+    console.warn("Login auth error response:", error?.message || error)
     const msg = error?.message || error?.toString() || ""
 
-    // Check if customer exists in DB from checkout but has no auth password set yet
+    // Optional check: if customer exists from guest checkout but has no password created yet
     try {
       const client = await pool.connect()
       try {
@@ -490,7 +482,7 @@ export async function login(_currentState: unknown, formData: FormData) {
         client.release()
       }
     } catch (e) {
-      console.warn("Notice: check guest customer query:", e)
+      // Safe fallback
     }
 
     if (
@@ -502,9 +494,42 @@ export async function login(_currentState: unknown, formData: FormData) {
     ) {
       return "Invalid email or password. Please verify your credentials and try again."
     }
+
+    if (msg.includes("timeout") || msg.includes("Timeout") || msg.includes("fetch failed")) {
+      return "Authentication service is warming up. Please try again in a few seconds."
+    }
+
     return "Invalid email or password. Please check your credentials and try again."
   }
 
+  if (!token) {
+    return "Unable to log in. Please verify your credentials."
+  }
+
+  // 3. Set Auth Cookie & Invalidate Cache Tags
+  await setAuthToken(token)
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+
+  // 4. Record last login timestamp (safe & non-blocking)
+  try {
+    const logClient = await pool.connect()
+    try {
+      await logClient.query(
+        `UPDATE customer 
+         SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{last_login_at}', to_jsonb(NOW()::text)),
+             updated_at = NOW()
+         WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
+        [email]
+      )
+    } finally {
+      logClient.release()
+    }
+  } catch (err) {
+    console.warn("Notice: could not record last_login_at:", err)
+  }
+
+  // 5. Transfer Cart if applicable
   try {
     await transferCart()
   } catch (cartError) {
