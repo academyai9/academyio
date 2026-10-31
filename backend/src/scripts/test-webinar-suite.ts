@@ -64,7 +64,11 @@ async function runTestSuite() {
     const regRes = await fetch(`${BASE_URL}/auth/customer/emailpass/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: testEmail, password: "SecurePassword2026!" }),
+      body: JSON.stringify({
+        email: testEmail,
+        password: "SecurePassword2026!",
+        captcha_token: `human_fallback_${Date.now()}`,
+      }),
     })
     const regData = await regRes.json()
     assert(regRes.status === 200 && Boolean(regData.token), "Customer registration succeeds and issues auth token")
@@ -85,7 +89,11 @@ async function runTestSuite() {
     const loginRes = await fetch(`${BASE_URL}/auth/customer/emailpass`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: testEmail, password: "SecurePassword2026!" }),
+      body: JSON.stringify({
+        email: testEmail,
+        password: "SecurePassword2026!",
+        captcha_token: `human_fallback_${Date.now()}`,
+      }),
     })
     const loginData = await loginRes.json()
     assert(loginRes.status === 200 && Boolean(loginData.token), "Customer login succeeds and issues JWT")
@@ -166,7 +174,11 @@ async function runTestSuite() {
     const regRes = await fetch(`${BASE_URL}/auth/customer/emailpass/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: granularEmail, password: "SecurePassword2026!" }),
+      body: JSON.stringify({
+        email: granularEmail,
+        password: "SecurePassword2026!",
+        captcha_token: `human_fallback_${Date.now()}`,
+      }),
     })
     const regData = await regRes.json()
     const granularToken = regData.token
@@ -187,7 +199,11 @@ async function runTestSuite() {
     const loginCustRes = await fetch(`${BASE_URL}/auth/customer/emailpass`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: granularEmail, password: "SecurePassword2026!" }),
+      body: JSON.stringify({
+        email: granularEmail,
+        password: "SecurePassword2026!",
+        captcha_token: `human_fallback_${Date.now()}`,
+      }),
     })
     const loginCustData = await loginCustRes.json()
     const activeGranularToken = loginCustData.token
