@@ -26,14 +26,16 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       product = await productModule.retrieveProduct(webinar.product_id, {
         relations: ["variants", "variants.options"],
       })
-      productVariants = product?.variants || []
+      productVariants = (product?.variants || []).filter((v: any) => !v.deleted_at)
     } catch (e) {
       // product might not exist yet
     }
   }
 
+  const activeMappings = mappings.filter((m: any) => !m.deleted_at)
+
   // Merge variants with mappings
-  const combinedVariants = mappings.map((mapping) => {
+  const combinedVariants = activeMappings.map((mapping) => {
     const variant = productVariants.find((v) => v.id === mapping.variant_id)
     return {
       mapping_id: mapping.id,
@@ -54,9 +56,9 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     }
   })
 
-  // If there are product variants without mappings, append them
-  for (const v of productVariants) {
-    if (!mappings.some((m) => m.variant_id === v.id)) {
+  // If webinar has NO configured mappings yet, show active product variants so admin can configure them
+  if (activeMappings.length === 0) {
+    for (const v of productVariants) {
       combinedVariants.push({
         mapping_id: null as any,
         variant_id: v.id,
@@ -84,7 +86,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     webinar_id: id,
     product_id: webinar.product_id,
     variants: combinedVariants,
-    mappings,
+    mappings: activeMappings,
   })
 }
 

@@ -615,7 +615,10 @@ export default function WebinarsAdminPage() {
         headers: getAuthHeaders(),
         credentials: "include",
       })
-      if (!res.ok) throw new Error("Failed to delete option")
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || "Failed to delete option")
+      }
       notify("success", `Purchase option "${v.title}" removed.`)
       fetchWebinarDetails(selectedWebinarId)
     } catch (err: any) {
