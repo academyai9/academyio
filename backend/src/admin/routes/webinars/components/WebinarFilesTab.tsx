@@ -169,6 +169,144 @@ export default function WebinarFilesTab({
     )
   }
 
+  // Helper: Upload a single file using streaming or direct presigned S3/R2 storage (supports up to 1GB documents & 5GB video)
+  const uploadFileWithStreaming = async (
+    file: File,
+    materialType: string,
+    onProgress: (percent: number) => void
+  ): Promise<{
+    s3_key: string
+    s3_bucket: string
+    s3_region: string
+    file_name: string
+    file_size: number
+    mime_type: string
+  }> => {
+    onProgress(10)
+
+    // Method 1: Try Presigned URL direct S3/R2 upload (zero backend memory load)
+    try {
+      const presignedRes = await fetch("/admin/webinar-files/upload-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          webinarId,
+          materialType,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || "application/pdf",
+        }),
+      })
+
+      if (presignedRes.ok) {
+        const presignedData = await presignedRes.json()
+        const uploadUrl = presignedData.upload_url
+
+        if (uploadUrl && (uploadUrl.startsWith("http://") || uploadUrl.startsWith("https://"))) {
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+            xhr.open("PUT", uploadUrl)
+            if (presignedData.mime_type) {
+              xhr.setRequestHeader("Content-Type", presignedData.mime_type)
+            }
+            xhr.upload.onprogress = (evt) => {
+              if (evt.lengthComputable) {
+                const pct = Math.min(90, Math.round((evt.loaded / evt.total) * 90))
+                onProgress(pct)
+              }
+            }
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve()
+              } else {
+                reject(new Error(`Direct storage upload returned HTTP ${xhr.status}`))
+              }
+            }
+            xhr.onerror = () => reject(new Error("Network connection error during direct S3 storage upload"))
+            xhr.send(file)
+          })
+
+          onProgress(95)
+          return {
+            s3_key: presignedData.s3_key,
+            s3_bucket: presignedData.s3_bucket,
+            s3_region: presignedData.s3_region,
+            file_name: presignedData.file_name || file.name,
+            file_size: file.size,
+            mime_type: presignedData.mime_type || file.type || "application/pdf",
+          }
+        }
+      }
+    } catch (presignedErr: any) {
+      console.warn("Direct presigned upload notice (falling back to streaming upload):", presignedErr.message)
+    }
+
+    // Method 2: High-speed streaming binary upload via backend stream-upload endpoint
+    // Uses native binary File stream with zero Base64 memory overhead (easily handles 500 MB+)
+    onProgress(20)
+    const streamUrl = `/admin/webinar-files/stream-upload?webinarId=${encodeURIComponent(
+      webinarId
+    )}&materialType=${encodeURIComponent(materialType)}&fileName=${encodeURIComponent(
+      file.name
+    )}&mimeType=${encodeURIComponent(file.type || "application/pdf")}`
+
+    const authHeaders = getAuthHeaders()
+    const result = await new Promise<{
+      s3_key: string
+      s3_bucket: string
+      s3_region: string
+      file_name: string
+      file_size: number
+      mime_type: string
+    }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open("POST", streamUrl)
+      xhr.withCredentials = true
+
+      for (const [key, val] of Object.entries(authHeaders)) {
+        if (key.toLowerCase() !== "content-type") {
+          xhr.setRequestHeader(key, val)
+        }
+      }
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          const pct = Math.min(90, Math.round((evt.loaded / evt.total) * 90))
+          onProgress(pct)
+        }
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            resolve(data)
+          } catch (e) {
+            reject(new Error("Invalid response format from stream upload."))
+          }
+        } else {
+          let errText = `Upload returned HTTP ${xhr.status}`
+          try {
+            const errObj = JSON.parse(xhr.responseText)
+            if (errObj.message) errText = errObj.message
+          } catch {}
+          reject(new Error(errText))
+        }
+      }
+
+      xhr.onerror = () => reject(new Error("Network connection error during file streaming."))
+      xhr.send(file)
+    })
+
+    onProgress(95)
+    return result
+  }
+
   // Execute Upload Flow
   const handleStartUpload = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -189,57 +327,25 @@ export default function WebinarFilesTab({
 
         // Update queue status
         setUploadQueue((prev) =>
-          prev.map((q, idx) => (idx === i ? { ...q, status: "uploading", progress: 10 } : q))
+          prev.map((q, idx) => (idx === i ? { ...q, status: "uploading", progress: 5 } : q))
         )
 
-        // 1. Convert file to Base64 dataUrl for server-side private upload
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = (err) => reject(err)
-          reader.readAsDataURL(file)
-        })
-
-        setUploadQueue((prev) =>
-          prev.map((q, idx) => (idx === i ? { ...q, progress: 50 } : q))
-        )
-
-        // 2. Call Direct S3 Upload endpoint
-        const uploadRes = await fetch("/admin/webinar-files/direct-upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeaders(),
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            webinarId,
-            materialType: uploadForm.material_type,
-            fileName: file.name,
-            mimeType: file.type || "application/octet-stream",
-            dataUrl,
-          }),
-        })
-
-        if (!uploadRes.ok) {
-          let errMsg = `Upload failed (${uploadRes.status})`
-          try {
-            const errData = await uploadRes.json()
-            if (errData?.message) errMsg = errData.message
-          } catch {
-            const text = await uploadRes.text()
-            if (text) errMsg = text.slice(0, 150)
+        // Upload file via high-performance stream / presigned S3/R2 storage
+        const uploadData = await uploadFileWithStreaming(
+          file,
+          uploadForm.material_type,
+          (progress) => {
+            setUploadQueue((prev) =>
+              prev.map((q, idx) => (idx === i ? { ...q, progress } : q))
+            )
           }
-          throw new Error(errMsg)
-        }
-
-        const uploadData = await uploadRes.json()
-
-        setUploadQueue((prev) =>
-          prev.map((q, idx) => (idx === i ? { ...q, progress: 85 } : q))
         )
 
-        // 3. Register completed file record in PostgreSQL
+        setUploadQueue((prev) =>
+          prev.map((q, idx) => (idx === i ? { ...q, progress: 95 } : q))
+        )
+
+        // Register completed file record in PostgreSQL
         const fileTitle = uploadQueue.length === 1 && uploadForm.title ? uploadForm.title : file.name.replace(/\.[^/.]+$/, "")
 
         const recordRes = await fetch("/admin/webinar-files", {
@@ -351,43 +457,12 @@ export default function WebinarFilesTab({
 
     setSaving(true)
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = (err) => reject(err)
-        reader.readAsDataURL(file)
-      })
-
-      // Upload replacement to S3
-      const uploadRes = await fetch("/admin/webinar-files/direct-upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          webinarId,
-          materialType: replacingFile.material_type,
-          fileName: file.name,
-          mimeType: file.type || "application/octet-stream",
-          dataUrl,
-        }),
-      })
-
-      if (!uploadRes.ok) {
-        let errMsg = `Failed to upload replacement asset (${uploadRes.status})`
-        try {
-          const err = await uploadRes.json()
-          if (err?.message) errMsg = err.message
-        } catch {
-          const text = await uploadRes.text()
-          if (text) errMsg = text.slice(0, 150)
-        }
-        throw new Error(errMsg)
-      }
-
-      const uploadData = await uploadRes.json()
+      // Upload replacement file using high-performance streaming or presigned URL (up to 500MB+)
+      const uploadData = await uploadFileWithStreaming(
+        file,
+        replacingFile.material_type,
+        () => {}
+      )
 
       // Update file record with new S3 key and dimensions
       const updateRes = await fetch(`/admin/webinar-files/${replacingFile.id}`, {
@@ -830,7 +905,7 @@ export default function WebinarFilesTab({
                       Click to browse or drag and drop files here
                     </span>
                     <span className="text-[11px] text-neutral-500">
-                      Supported: PDF, MP4, MOV, PPTX, DOCX, XLSX, ZIP (Max 2.5GB for video, 200MB for documents)
+                      Supported: PDF, MP4, MOV, PPTX, DOCX, XLSX, ZIP (Max 5GB for video, up to 1GB for documents/PDF)
                     </span>
                   </label>
                 </div>

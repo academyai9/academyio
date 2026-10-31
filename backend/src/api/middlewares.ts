@@ -101,9 +101,16 @@ export default defineMiddlewares({
       ],
     },
     {
+      matcher: "/admin/webinar-files/stream-upload",
+      bodyParser: false,
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
       matcher: "/admin/webinar-files*",
       bodyParser: {
-        sizeLimit: "100mb",
+        sizeLimit: "600mb",
       },
       middlewares: [
         authenticate("user", ["session", "bearer", "api-key"]),

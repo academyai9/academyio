@@ -94,7 +94,21 @@ export default async function runTests({ container }: ExecArgs) {
       badMimeError?.message
     )
 
-    // Test 1.4: Reject oversize document (> 200MB)
+    // Test 1.4: Allow 500MB PDF document upload
+    const large500mbDoc = await S3StorageService.getPresignedUploadUrl({
+      webinarId: "web_test_123",
+      materialType: "handout",
+      fileName: "large_500mb_presentation.pdf",
+      mimeType: "application/pdf",
+      fileSize: 500 * 1024 * 1024, // 500MB
+    })
+    assert(
+      large500mbDoc.upload_url && large500mbDoc.s3_key.includes("/materials/"),
+      "Allow 500MB PDF document upload within 1GB threshold",
+      `Key: ${large500mbDoc.s3_key}`
+    )
+
+    // Test 1.4b: Reject oversize document (> 1GB)
     let oversizeDocError: any = null
     try {
       await S3StorageService.getPresignedUploadUrl({
@@ -102,28 +116,28 @@ export default async function runTests({ container }: ExecArgs) {
         materialType: "handout",
         fileName: "huge_document.pdf",
         mimeType: "application/pdf",
-        fileSize: 250 * 1024 * 1024, // 250MB
+        fileSize: 1.2 * 1024 * 1024 * 1024, // 1.2GB
       })
     } catch (e) {
       oversizeDocError = e
     }
     assert(
       oversizeDocError && oversizeDocError.message.includes("exceeds the maximum limit"),
-      "Enforce maximum file size limit (200MB limit for documents)",
+      "Enforce maximum file size limit (1GB limit for documents)",
       oversizeDocError?.message
     )
 
-    // Test 1.5: Allow large MP4 video under 2.5GB
+    // Test 1.5: Allow large MP4 video under 5GB
     const validVideoUpload = await S3StorageService.getPresignedUploadUrl({
       webinarId: "web_test_123",
       materialType: "recording",
       fileName: "webinar_master_full_session_hd.mp4",
       mimeType: "video/mp4",
-      fileSize: 1.8 * 1024 * 1024 * 1024, // 1.8 GB
+      fileSize: 3.5 * 1024 * 1024 * 1024, // 3.5 GB
     })
     assert(
       validVideoUpload.upload_url && validVideoUpload.s3_key.includes("/recording/"),
-      "Allow large video MP4 within 2.5GB threshold",
+      "Allow large video MP4 within 5GB threshold",
       `Key: ${validVideoUpload.s3_key}`
     )
 

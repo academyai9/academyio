@@ -71,28 +71,29 @@ const BLOCKED_EXTENSIONS = new Set([
   ".html", ".htm", ".xhtml", ".svg", // SVGs can contain script tags
 ])
 
-const MAX_RECORDING_SIZE = 2.5 * 1024 * 1024 * 1024 // 2.5 GB
-const MAX_DOCUMENT_SIZE = 200 * 1024 * 1024 // 200 MB
+const MAX_RECORDING_SIZE = 5 * 1024 * 1024 * 1024 // 5 GB
+const MAX_DOCUMENT_SIZE = 1024 * 1024 * 1024 // 1 GB (fully supports 500 MB+ files)
 
 export class S3StorageService {
   private static s3ClientInstance: S3Client | null = null
   private static localFallbackDir = path.resolve(process.cwd(), "static/private-uploads")
 
-  private static getRegion(): string {
-    return process.env.AWS_REGION || process.env.S3_REGION || "us-east-1"
+  public static getRegion(): string {
+    return process.env.AWS_REGION || process.env.S3_REGION || "auto"
   }
 
-  private static getBucket(): string {
-    return process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || "academyio-private-webinars"
+  public static getBucket(): string {
+    return process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || "academyio-media"
   }
 
   /**
    * Initialize or return singleton S3Client instance
    */
-  private static getS3Client(): S3Client {
+  public static getS3Client(): S3Client {
     if (!this.s3ClientInstance) {
+      const region = this.getRegion()
       const config: any = {
-        region: this.getRegion(),
+        region: region || "auto",
       }
 
       // Check for explicit credentials (supports both AWS_* and S3_* environment keys)
@@ -110,10 +111,7 @@ export class S3StorageService {
       const endpoint = process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT
       if (endpoint) {
         config.endpoint = endpoint
-        config.forcePathStyle =
-          process.env.AWS_S3_FORCE_PATH_STYLE === "true" ||
-          process.env.S3_FORCE_PATH_STYLE === "true" ||
-          true
+        config.forcePathStyle = true
       }
 
       this.s3ClientInstance = new S3Client(config)

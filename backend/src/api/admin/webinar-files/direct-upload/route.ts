@@ -1,6 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { S3StorageService } from "../../../../modules/webinar/s3-storage-service"
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { PutObjectCommand } from "@aws-sdk/client-s3"
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
@@ -15,12 +15,9 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
     let fileBuffer: Buffer
     if (dataUrl && typeof dataUrl === "string") {
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-      if (match) {
-        fileBuffer = Buffer.from(match[2], "base64")
-      } else {
-        return res.status(400).json({ message: "Invalid dataUrl format." })
-      }
+      const commaIdx = dataUrl.indexOf(",")
+      const base64Str = commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : dataUrl
+      fileBuffer = Buffer.from(base64Str, "base64")
     } else if (base64 && typeof base64 === "string") {
       fileBuffer = Buffer.from(base64, "base64")
     } else {
@@ -47,27 +44,12 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       fileName,
     })
 
-    const bucket = process.env.AWS_S3_BUCKET || process.env.S3_BUCKET || "academyio-private-webinars"
-    const region = process.env.AWS_REGION || process.env.S3_REGION || "us-east-1"
+    const bucket = S3StorageService.getBucket()
+    const region = S3StorageService.getRegion()
 
     if (S3StorageService.isLiveS3Configured()) {
       try {
-        const config: any = { region }
-        const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.S3_ACCESS_KEY_ID
-        const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.S3_SECRET_ACCESS_KEY
-        const endpoint = process.env.AWS_S3_ENDPOINT || process.env.S3_ENDPOINT
-
-        if (accessKeyId && secretAccessKey) {
-          config.credentials = {
-            accessKeyId,
-            secretAccessKey,
-          }
-        }
-        if (endpoint) {
-          config.endpoint = endpoint
-          config.forcePathStyle = true
-        }
-        const s3Client = new S3Client(config)
+        const s3Client = S3StorageService.getS3Client()
         await s3Client.send(
           new PutObjectCommand({
             Bucket: bucket,
@@ -86,7 +68,6 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         S3StorageService.saveLocalFile(s3Key, fileBuffer)
       }
     } else {
-      // Local fallback
       S3StorageService.saveLocalFile(s3Key, fileBuffer)
     }
 
