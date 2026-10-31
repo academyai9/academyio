@@ -148,7 +148,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     transcript_file_url: body.transcript_file_url || null,
   })
 
-  // 2. Automatically create linked Medusa Product with 5 standard variants or custom options
+  // 2. Automatically create linked Medusa Product with 4 standard variants or custom options
   try {
     const customOptions = body.custom_options || [
       {
@@ -177,15 +177,6 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         incRec: false,
         incTrs: true,
         incPdf: false,
-      },
-      {
-        title: "PDF Download",
-        type: "pdf",
-        price: body.prices?.pdf || 29,
-        incLive: false,
-        incRec: false,
-        incTrs: false,
-        incPdf: true,
       },
       {
         title: "Complete Package: Live + Recording + Transcript + PDF",

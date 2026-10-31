@@ -68,10 +68,11 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     }
   }
 
-  // Build combined variants list from mappings (respecting is_enabled and custom prices)
+  // Build combined variants list from mappings (respecting is_enabled, custom prices, and excluding standalone PDF)
   const variants: any[] = []
   for (const m of mappings) {
-    if (m.is_enabled === false) continue
+    if (m.is_enabled === false || m.deleted_at) continue
+    if (m.option_type === "pdf" || m.title?.toLowerCase().includes("pdf study guide")) continue
 
     const pVariant = productVariants.find((pv: any) => pv.id === m.variant_id)
     variants.push({
@@ -95,9 +96,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     })
   }
 
-  // If product variants exist without mappings, add them as enabled default variants
-  for (const pv of productVariants) {
-    if (!variants.some((v) => v.id === pv.id)) {
+  // Fallback ONLY when webinar has zero configured mappings
+  if (variants.length === 0 && productVariants.length > 0) {
+    for (const pv of productVariants) {
+      if (pv.sku?.endsWith("-PDF") || pv.title?.toLowerCase().includes("pdf study guide")) continue
       variants.push({
         id: pv.id,
         mapping_id: null,

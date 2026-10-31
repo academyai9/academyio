@@ -98,6 +98,7 @@ export default function WebinarsAdminPage() {
   const [editingOption, setEditingOption] = useState<any | null>(null)
   const [optionForm, setOptionForm] = useState({
     variant_id: "",
+    mapping_id: "",
     title: "",
     description: "",
     price: 149,
@@ -1320,6 +1321,7 @@ export default function WebinarsAdminPage() {
                 setEditingOption(null)
                 setOptionForm({
                   variant_id: "",
+                  mapping_id: "",
                   title: "",
                   description: "",
                   price: 149,
@@ -1434,6 +1436,7 @@ export default function WebinarsAdminPage() {
                         setEditingOption(v)
                         setOptionForm({
                           variant_id: v.variant_id,
+                          mapping_id: v.mapping_id || "",
                           title: v.title,
                           description: v.description || "",
                           price: v.price,
@@ -2305,7 +2308,6 @@ export default function WebinarsAdminPage() {
                     <option value="live">Live Webinar</option>
                     <option value="recording">Recording</option>
                     <option value="transcript">Transcript</option>
-                    <option value="pdf">PDF Download</option>
                     <option value="bundle">Complete Package</option>
                     <option value="custom">Other / Custom Bundle</option>
                   </select>

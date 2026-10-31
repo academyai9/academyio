@@ -448,7 +448,6 @@ export default async function seedWebinars({ container }: ExecArgs) {
                 "Live Webinar Access",
                 "Recorded Webinar",
                 "Webinar Transcript",
-                "PDF Download",
                 "Complete Package: Live + Recording + Transcript + PDF",
               ],
             },
@@ -470,11 +469,6 @@ export default async function seedWebinars({ container }: ExecArgs) {
               options: { "Purchase Option": "Webinar Transcript" },
             },
             {
-              title: "PDF Download",
-              sku: `WEB-${webinar.id.slice(-6)}-PDF`.toUpperCase(),
-              options: { "Purchase Option": "PDF Download" },
-            },
-            {
               title: "Complete Package: Live + Recording + Transcript + PDF",
               sku: `WEB-${webinar.id.slice(-6)}-BND`.toUpperCase(),
               options: { "Purchase Option": "Complete Package: Live + Recording + Transcript + PDF" },
@@ -492,7 +486,6 @@ export default async function seedWebinars({ container }: ExecArgs) {
           { type: "live", incLive: true, incRec: false, incTrs: false, incPdf: false },
           { type: "recording", incLive: false, incRec: true, incTrs: false, incPdf: false },
           { type: "transcript", incLive: false, incRec: false, incTrs: true, incPdf: false },
-          { type: "pdf", incLive: false, incRec: false, incTrs: false, incPdf: true },
           { type: "bundle", incLive: true, incRec: true, incTrs: true, incPdf: true },
         ]
 

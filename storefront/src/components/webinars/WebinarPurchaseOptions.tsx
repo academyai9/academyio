@@ -71,7 +71,9 @@ export default function WebinarPurchaseOptions({
   const isRecordingReady = Boolean(webinar.recording_ready || webinar.has_recording)
 
   // Build options from webinar.variants if available, otherwise fallback
-  const rawVariants = webinar.variants || []
+  const rawVariants = (webinar.variants || []).filter(
+    (v: any) => v.option_type !== "pdf" && !v.title?.toLowerCase().includes("pdf study guide")
+  )
 
   const allBuiltOptions: DisplayOption[] =
     rawVariants.length > 0
@@ -168,20 +170,13 @@ export default function WebinarPurchaseOptions({
             includedItems: ["Online reading access", "Searchable text transcript", "Downloadable document format"],
             isAvailable: true,
           },
-          {
-            variantId: "default_pdf",
-            type: "pdf",
-            title: "PDF Study Guide & Resources",
-            price: 29,
-            currencyCode: "USD",
-            description: "Comprehensive instructor presentation slides, IRS compliance checklists, and worksheets.",
-            includedItems: ["Instructor slide deck", "Practice audit checklists", "Step-by-step worksheets"],
-            isAvailable: true,
-          },
         ]
 
-  // Completely remove Live option for completed events so customers cannot select live for completed events
+  // Filter out standalone PDF and remove Live option for completed events
   const displayOptions = allBuiltOptions.filter((opt) => {
+    if (opt.type === "pdf") {
+      return false
+    }
     if (isCompleted && opt.type === "live") {
       return false
     }

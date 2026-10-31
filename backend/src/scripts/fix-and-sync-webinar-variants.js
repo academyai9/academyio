@@ -16,7 +16,7 @@ const STANDARD_OPTIONS = [
     type: "live",
     skuSuffix: "LIVE",
     title: "Live Webinar Access",
-    price: 149,
+    defaultPrice: 149,
     order: 1,
     includes: { live: true, recording: false, transcript: false, pdf: false },
   },
@@ -24,7 +24,7 @@ const STANDARD_OPTIONS = [
     type: "recording",
     skuSuffix: "REC",
     title: "Recorded Webinar",
-    price: 149,
+    defaultPrice: 149,
     order: 2,
     includes: { live: false, recording: true, transcript: false, pdf: false },
   },
@@ -32,24 +32,16 @@ const STANDARD_OPTIONS = [
     type: "transcript",
     skuSuffix: "TRS",
     title: "Webinar Transcript",
-    price: 49,
+    defaultPrice: 49,
     order: 3,
     includes: { live: false, recording: false, transcript: true, pdf: false },
-  },
-  {
-    type: "pdf",
-    skuSuffix: "PDF",
-    title: "PDF Study Guide & Resources",
-    price: 29,
-    order: 4,
-    includes: { live: false, recording: false, transcript: false, pdf: true },
   },
   {
     type: "bundle",
     skuSuffix: "BND",
     title: "Complete Package (All Included)",
-    price: 249,
-    order: 5,
+    defaultPrice: 249,
+    order: 4,
     includes: { live: true, recording: true, transcript: true, pdf: true },
   },
 ];
@@ -208,34 +200,37 @@ async function run() {
         );
       }
 
-      // Upsert USD and EUR price in price table
+      // 5. Check if mapping exists to preserve any super admin custom price
+      const mapRes = await client.query(
+        "SELECT id, price FROM webinar_variant_mapping WHERE webinar_id = $1 AND option_type = $2",
+        [webinar.id, opt.type]
+      );
+      const effectivePrice = (mapRes.rows.length && mapRes.rows[0].price != null) ? mapRes.rows[0].price : opt.defaultPrice;
+
+      // Upsert USD and EUR price in price table with effective custom price
       for (const curr of ["usd", "eur"]) {
         const pCheck = await client.query(
           "SELECT id FROM price WHERE price_set_id = $1 AND currency_code = $2",
           [priceSetId, curr]
         );
-        const rawAmount = JSON.stringify({ value: String(opt.price), precision: 20 });
+        const rawAmount = JSON.stringify({ value: String(effectivePrice), precision: 20 });
         if (pCheck.rows.length) {
           await client.query(
             "UPDATE price SET amount = $1, raw_amount = $2, updated_at = NOW() WHERE id = $3",
-            [opt.price, rawAmount, pCheck.rows[0].id]
+            [effectivePrice, rawAmount, pCheck.rows[0].id]
           );
         } else {
           const priceId = generateId("price");
           await client.query(
             `INSERT INTO price (id, price_set_id, currency_code, amount, raw_amount, rules_count, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, 0, NOW(), NOW())`,
-            [priceId, priceSetId, curr, opt.price, rawAmount]
+            [priceId, priceSetId, curr, effectivePrice, rawAmount]
           );
         }
       }
-      console.log(`    Price set ${priceSetId} synchronized to $${opt.price}`);
+      console.log(`    Price set ${priceSetId} synchronized to $${effectivePrice}`);
 
-      // 5. Ensure webinar_variant_mapping exists and links to variantId
-      const mapRes = await client.query(
-        "SELECT id FROM webinar_variant_mapping WHERE webinar_id = $1 AND option_type = $2",
-        [webinar.id, opt.type]
-      );
+      // Ensure webinar_variant_mapping exists and links to variantId
       if (mapRes.rows.length) {
         const mId = mapRes.rows[0].id;
         await client.query(
@@ -247,7 +242,7 @@ async function run() {
           [
             variantId,
             opt.title,
-            opt.price,
+            effectivePrice,
             opt.order,
             opt.includes.live,
             opt.includes.recording,
@@ -267,7 +262,7 @@ async function run() {
             webinar.id,
             variantId,
             opt.title,
-            opt.price,
+            effectivePrice,
             opt.type,
             opt.includes.live,
             opt.includes.recording,

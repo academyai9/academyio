@@ -50,7 +50,8 @@ async function runTestSuite() {
     const detailData = await detailRes.json()
     assert(detailRes.status === 200, "Single webinar endpoint returns HTTP 200")
     assert(detailData.webinar.slug === "s-corp-basis-analysis-form-7203", "Returns correct webinar by slug")
-    assert(detailData.webinar.variants.length >= 5, "Webinar has all 5 purchase variants (Live, Recording, Transcript, PDF, Bundle)")
+    assert(detailData.webinar.variants.length >= 4, "Webinar has all purchase variants (Live, Recording, Transcript, Bundle)")
+    assert(!detailData.webinar.variants.some((v: any) => v.option_type === "pdf"), "Standalone PDF option is purged from purchase options")
     sCorpWebinarId = detailData.webinar.id
   } catch (err: any) {
     assert(false, `Test Suite 2 failed with error: ${err.message}`)
@@ -849,7 +850,7 @@ async function runTestSuite() {
         status: "published",
         recording_url: null,
         recording_published: false,
-        prices: { live: 149, recording: 149, transcript: 49, pdf: 29, bundle: 249 },
+        prices: { live: 149, recording: 149, transcript: 49, bundle: 249 },
       }),
     })
     const createPastData = await createPastRes.json()
