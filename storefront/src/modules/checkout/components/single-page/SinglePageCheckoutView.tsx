@@ -26,6 +26,7 @@ import {
   Plus,
   Minus,
   Loader2,
+  UserPlus,
 } from "lucide-react"
 import { HttpTypes } from "@medusajs/types"
 import { convertToLocale } from "@lib/util/money"
@@ -92,6 +93,7 @@ export default function SinglePageCheckoutView({
     company: initialCart.billing_address?.company || customer.company_name || (customer as any)?.metadata?.company_name || (customer as any)?.metadata?.company || "",
     ptin: (customer as any)?.metadata?.ptin || "",
     cfpId: (customer as any)?.metadata?.cfp_id || "",
+    additionalAttendees: ((initialCart as any)?.metadata?.additional_attendees as string) || "",
   })
 
   const [showEditBilling, setShowEditBilling] = useState(false)
@@ -333,8 +335,8 @@ export default function SinglePageCheckoutView({
       profileFormData.append("cfp_id", (billingForm.cfpId || "").trim())
       await updateCustomerProfile(profileFormData)
 
-      // 2. Sync Medusa Cart Billing Address
-      await updateCart({
+      // 2. Sync Medusa Cart Billing Address & Metadata
+      const updatedCart = await updateCart({
         email: (billingForm.email || "").trim(),
         billing_address: {
           first_name: firstName,
@@ -347,7 +349,15 @@ export default function SinglePageCheckoutView({
           postal_code: "10001",
           country_code: (countryCode || "us").toLowerCase(),
         },
+        metadata: {
+          ...((cart as any)?.metadata || {}),
+          additional_attendees: (billingForm.additionalAttendees || "").trim(),
+        },
       })
+
+      if (updatedCart) {
+        setCart(updatedCart)
+      }
 
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
@@ -358,6 +368,27 @@ export default function SinglePageCheckoutView({
       return false
     } finally {
       setIsSavingDetails(false)
+    }
+  }
+
+  // Auto-sync Additional Attendee Email on blur outside full edit mode
+  const handleAttendeeBlur = async () => {
+    const trimmed = (billingForm.additionalAttendees || "").trim()
+    const existing = ((cart as any)?.metadata?.additional_attendees || "").trim()
+    if (trimmed !== existing) {
+      try {
+        const updated = await updateCart({
+          metadata: {
+            ...((cart as any)?.metadata || {}),
+            additional_attendees: trimmed,
+          },
+        })
+        if (updated) {
+          setCart(updated)
+        }
+      } catch (err) {
+        console.warn("Failed to auto-save additional attendees:", err)
+      }
     }
   }
 
@@ -378,6 +409,22 @@ export default function SinglePageCheckoutView({
         if (!ok && ptinError) {
           setIsSubmitting(false)
           return
+        }
+      } else {
+        // Ensure attendee email is persisted to cart metadata before completing order
+        const currentAttendeeMeta = (((cart as any)?.metadata?.additional_attendees || "") as string).trim()
+        const currentAttendeeForm = (billingForm.additionalAttendees || "").trim()
+        if (currentAttendeeMeta !== currentAttendeeForm) {
+          try {
+            await updateCart({
+              metadata: {
+                ...((cart as any)?.metadata || {}),
+                additional_attendees: currentAttendeeForm,
+              },
+            })
+          } catch (e) {
+            console.warn("Auto sync attendee email error:", e)
+          }
         }
       }
 
@@ -739,6 +786,32 @@ export default function SinglePageCheckoutView({
                       For CFP Designation holders only.
                     </p>
                   </div>
+
+                  {/* Additional Attendee – Enter Email Id */}
+                  <div className="sm:col-span-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+                    <label className="block text-[11px] font-bold text-gray-800 dark:text-slate-200 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <UserPlus className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>Additional Attendee – Enter Email Id</span>
+                      </span>
+                      <span className="text-[10px] text-gray-400 dark:text-slate-500 font-normal">(Optional)</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 dark:text-slate-500">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        value={billingForm.additionalAttendees}
+                        onChange={(e) => setBillingForm({ ...billingForm, additionalAttendees: e.target.value })}
+                        placeholder="e.g. colleague@firm.com (comma separated for multiple emails)"
+                        className="w-full text-xs pl-9 p-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white font-mono placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1">
+                      Enrolling colleagues or team members? Enter their email IDs to deliver session credentials, course materials, and CE/CPE certificates directly to them.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
@@ -814,6 +887,38 @@ export default function SinglePageCheckoutView({
                     )}
                   </div>
                 )}
+
+                {/* Additional Attendee – Enter Email Id */}
+                <div className="sm:col-span-2 pt-3.5 mt-1 border-t border-gray-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                      <UserPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>Additional Attendee – Enter Email Id</span>
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-slate-500">(Optional)</span>
+                    </label>
+                    {billingForm.additionalAttendees && (
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Auto-saved to order
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-slate-400 mb-2">
+                    Enrolling colleagues or team members? Enter their email IDs to deliver session credentials, course materials, and CE/CPE certificates directly to them.
+                  </p>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 dark:text-slate-500">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={billingForm.additionalAttendees}
+                      onChange={(e) => setBillingForm({ ...billingForm, additionalAttendees: e.target.value })}
+                      onBlur={handleAttendeeBlur}
+                      placeholder="e.g. colleague@firm.com (comma separated for multiple emails)"
+                      className="w-full text-xs pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800/90 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white font-mono placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>

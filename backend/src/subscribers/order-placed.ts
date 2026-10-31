@@ -71,6 +71,91 @@ export default async function orderPlacedHandler({
       }
     }
 
+    // Provision entitlements for additional attendees if specified in checkout
+    const additionalAttendeesRaw =
+      (order.metadata as any)?.additional_attendees ||
+      (order.metadata as any)?.additional_attendee_email
+    if (additionalAttendeesRaw && typeof additionalAttendeesRaw === "string") {
+      const attendeeEmails = additionalAttendeesRaw
+        .split(/[,;\n]+/)
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(
+          (e: string) =>
+            e.length > 3 && e.includes("@") && e !== customerEmail.toLowerCase()
+        )
+
+      if (attendeeEmails.length > 0) {
+        logger.info(
+          `Found ${attendeeEmails.length} additional attendee(s) for order ${data.id}: ${attendeeEmails.join(", ")}`
+        )
+
+        let customerModuleService: any = null
+        try {
+          customerModuleService = container.resolve(Modules.CUSTOMER)
+        } catch {
+          // Fallback if customer module is not resolvable
+        }
+
+        for (const attendeeEmail of attendeeEmails) {
+          try {
+            let attendeeCustomerId = customerId
+            if (customerModuleService) {
+              const existingCusts = await customerModuleService.listCustomers({
+                email: attendeeEmail,
+              })
+              if (existingCusts && existingCusts.length > 0) {
+                attendeeCustomerId = existingCusts[0].id
+              } else {
+                const newCust = await customerModuleService.createCustomers({
+                  email: attendeeEmail,
+                  first_name: "Attendee",
+                  last_name: (order as any).customer?.last_name || "Guest",
+                })
+                attendeeCustomerId = newCust.id
+              }
+            }
+
+            for (const item of order.items) {
+              if (!item.variant_id) continue
+
+              const mappings = await webinarService.listWebinarVariantMappings({
+                variant_id: item.variant_id,
+              })
+
+              const targetWebinarId =
+                mappings.length > 0
+                  ? mappings[0].webinar_id
+                  : (item.metadata?.webinar_id as string)
+              const determinedAccessType =
+                (mappings.length > 0
+                  ? mappings[0].option_type
+                  : item.metadata?.access_type) || "live"
+
+              if (targetWebinarId) {
+                logger.info(
+                  `Granting additional attendee entitlement for ${attendeeEmail} on webinar ${targetWebinarId}`
+                )
+                await webinarService.grantEntitlementForVariant({
+                  customerId: attendeeCustomerId,
+                  customerEmail: attendeeEmail,
+                  orderId: order.id,
+                  orderItemId: `${item.id}-att-${attendeeCustomerId}`,
+                  variantId: item.variant_id,
+                  variantTitle: item.title,
+                  webinarId: targetWebinarId,
+                  accessType: determinedAccessType as any,
+                })
+              }
+            }
+          } catch (attendeeError: any) {
+            logger.warn(
+              `Failed to provision entitlement for additional attendee ${attendeeEmail}: ${attendeeError?.message || attendeeError}`
+            )
+          }
+        }
+      }
+    }
+
     logger.info(`Successfully finished provisioning entitlements for order ${data.id}`)
   } catch (error) {
     logger.error(`Error processing webinar entitlements for order ${data.id}:`, error as any)

@@ -48,6 +48,12 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
             {order.shipping_address?.phone}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">{order.email}</Text>
+          {(order.metadata as any)?.additional_attendees && (
+            <div className="mt-2 text-xs">
+              <span className="font-semibold text-ui-fg-base block">Additional Attendee(s):</span>
+              <span className="text-ui-fg-subtle">{(order.metadata as any).additional_attendees}</span>
+            </div>
+          )}
         </div>
 
         <div
