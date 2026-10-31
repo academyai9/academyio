@@ -1221,26 +1221,12 @@ export default function SinglePageCheckoutView({
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span>Instant Digital Delivery</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase text-[11px]">
-                  FREE ($0.00)
-                </span>
-              </div>
-
               {discountTotal > 0 && (
                 <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 font-semibold">
                   <span>Discount Applied</span>
                   <span>- {convertToLocale({ amount: discountTotal, currency_code: currencyCode })}</span>
                 </div>
               )}
-
-              <div className="flex items-center justify-between">
-                <span>Applicable Taxes</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {convertToLocale({ amount: taxTotal, currency_code: currencyCode })}
-                </span>
-              </div>
 
               <div className="pt-3 border-t border-gray-200 dark:border-slate-700 flex items-center justify-between text-base font-extrabold text-gray-900 dark:text-white">
                 <span>Total Amount Due</span>
