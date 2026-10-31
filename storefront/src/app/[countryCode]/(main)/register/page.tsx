@@ -1,7 +1,27 @@
 import React, { Suspense } from "react"
+import { redirect } from "next/navigation"
+import { retrieveCustomer } from "@lib/data/customer"
 import UnifiedAuthView from "@components/auth/UnifiedAuthView"
 
-export default function RegisterPage() {
+type RegisterPageProps = {
+  params: Promise<{ countryCode: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function RegisterPage(props: RegisterPageProps) {
+  const { countryCode } = await props.params
+  const searchParams = await props.searchParams
+  const returnUrl = (searchParams?.returnUrl as string) || (searchParams?.redirect as string) || ""
+
+  // When already logged in, do not show register page — redirect to returnUrl or account dashboard
+  const customer = await retrieveCustomer().catch(() => null)
+  if (customer) {
+    if (returnUrl) {
+      redirect(returnUrl)
+    }
+    redirect(`/${countryCode}/account`)
+  }
+
   return (
     <Suspense
       fallback={

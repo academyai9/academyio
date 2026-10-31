@@ -514,7 +514,7 @@ export async function login(_currentState: unknown, formData: FormData) {
   return null
 }
 
-export async function signout(countryCode: string) {
+export async function signout(countryCode: string, redirectTo?: string) {
   await sdk.auth.logout()
 
   await removeAuthToken()
@@ -527,7 +527,7 @@ export async function signout(countryCode: string) {
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
 
-  redirect(`/${countryCode}/login?logged_out=true`)
+  redirect(redirectTo || `/${countryCode}/login?logged_out=true`)
 }
 
 export async function transferCart() {
