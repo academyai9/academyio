@@ -99,7 +99,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         additional_notes,
         organizations,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), now())
       ON CONFLICT (webinar_id) DO UPDATE SET
         cpe_credit = EXCLUDED.cpe_credit,
         field_of_study = EXCLUDED.field_of_study,

@@ -467,7 +467,8 @@ export default function WebinarsAdminPage() {
         notify("success", "Live stream credentials and access rules saved.")
         fetchWebinars()
       } else {
-        notify("error", "Failed to save live link.")
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to save live link.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -489,7 +490,8 @@ export default function WebinarsAdminPage() {
         notify("success", "Recording details and expiration saved.")
         fetchWebinars()
       } else {
-        notify("error", "Failed to save recording.")
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to save recording.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -511,7 +513,8 @@ export default function WebinarsAdminPage() {
         notify("success", "Transcript document and contents updated successfully.")
         fetchWebinars()
       } else {
-        notify("error", "Failed to update transcript.")
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to update transcript.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -650,7 +653,8 @@ export default function WebinarsAdminPage() {
         })
         fetchWebinarDetails(selectedWebinarId)
       } else {
-        notify("error", "Failed to add resource.")
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to add resource.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -669,6 +673,9 @@ export default function WebinarsAdminPage() {
       if (res.ok) {
         notify("success", "Resource removed successfully.")
         fetchWebinarDetails(selectedWebinarId)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to remove resource.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -690,7 +697,8 @@ export default function WebinarsAdminPage() {
         setIsGrantModalOpen(false)
         fetchEntitlements()
       } else {
-        notify("error", "Failed to grant entitlement.")
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to grant entitlement.")
       }
     } catch (e: any) {
       notify("error", e.message)
@@ -711,6 +719,9 @@ export default function WebinarsAdminPage() {
       if (res.ok) {
         notify("success", "Entitlement revoked.")
         fetchEntitlements()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        notify("error", err.message || "Failed to revoke entitlement.")
       }
     } catch (e: any) {
       notify("error", e.message)

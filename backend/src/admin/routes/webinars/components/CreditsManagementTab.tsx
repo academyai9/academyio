@@ -201,8 +201,8 @@ export default function CreditsManagementTab({
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Failed to save credits")
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || err.error || "Failed to save credits")
       }
 
       notify("success", "Credits & educational information saved successfully")
