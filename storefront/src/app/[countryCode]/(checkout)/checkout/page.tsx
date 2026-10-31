@@ -38,7 +38,7 @@ export default async function Checkout(props: CheckoutPageProps) {
   // 2. Cart Verification: Cart must exist and have at least 1 item
   let cart = await retrieveCart()
   if (!cart || !cart.items || cart.items.length === 0) {
-    redirect(`/${countryCode}/webinars/upcoming`)
+    redirect(`/${countryCode}/webinars`)
   }
 
   // 3. Auto-Prepare Cart for Instant Digital Fulfillment
@@ -106,7 +106,7 @@ export default async function Checkout(props: CheckoutPageProps) {
     // Parallel fetch: available payment methods & webinar catalog
     const [paymentMethods, webinarsData] = await Promise.all([
       listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
-      getWebinars({ limit: 50 }).catch(() => ({ webinars: [] })),
+      getWebinars({ limit: 12 }).catch(() => ({ webinars: [] })),
     ])
     const webinars = webinarsData.webinars || []
 
@@ -152,7 +152,7 @@ export default async function Checkout(props: CheckoutPageProps) {
     // Fallback: render view with current cart state
     const [paymentMethods, webinarsData] = await Promise.all([
       listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
-      getWebinars({ limit: 50 }).catch(() => ({ webinars: [] })),
+      getWebinars({ limit: 12 }).catch(() => ({ webinars: [] })),
     ])
     const webinars = webinarsData.webinars || []
 

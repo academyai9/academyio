@@ -210,14 +210,41 @@ export default function WebinarPurchaseOptions({
 
     setLoading(true)
     setSuccessMessage(null)
+    setRegisterError(null)
 
     try {
-      if (selectedOption?.variantId && !selectedOption.variantId.startsWith("default_")) {
-        await fastDirectEnroll({
-          variantId: selectedOption.variantId,
-          countryCode,
-        })
+      let targetVariantId = selectedOption.variantId
+
+      // If variantId is a fallback (starts with default_ or var_custom_), find the real variant
+      if (!targetVariantId || targetVariantId.startsWith("default_") || targetVariantId.startsWith("var_custom_")) {
+        const matchingRealVariant = (webinar.variants || []).find(
+          (v: any) =>
+            v.option_type === selectedOption.type &&
+            v.id &&
+            !v.id.startsWith("default_") &&
+            !v.id.startsWith("var_custom_")
+        )
+        if (matchingRealVariant?.id) {
+          targetVariantId = matchingRealVariant.id
+        } else {
+          // Fallback to any real variant on this webinar
+          const anyRealVariant = (webinar.variants || []).find(
+            (v: any) => v.id && !v.id.startsWith("default_") && !v.id.startsWith("var_custom_")
+          )
+          if (anyRealVariant?.id) {
+            targetVariantId = anyRealVariant.id
+          }
+        }
       }
+
+      if (!targetVariantId || targetVariantId.startsWith("default_")) {
+        throw new Error("This option is currently being configured. Please refresh or select another option.")
+      }
+
+      await fastDirectEnroll({
+        variantId: targetVariantId,
+        countryCode,
+      })
 
       if (!customer) {
         router.push(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
@@ -226,12 +253,7 @@ export default function WebinarPurchaseOptions({
       }
     } catch (err: any) {
       console.error("Direct enroll error:", err)
-      if (!customer) {
-        router.push(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
-      } else {
-        router.push(`/${countryCode}/checkout`)
-      }
-    } finally {
+      setRegisterError(err.message || "Failed to proceed to checkout. Please try again.")
       setLoading(false)
     }
   }
@@ -652,6 +674,14 @@ export default function WebinarPurchaseOptions({
               )
             })}
           </div>
+
+          {/* Error Message for Direct Enrollment */}
+          {registerError && (
+            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-900/60 text-xs font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+              <span>{registerError}</span>
+            </div>
+          )}
 
           {/* Direct Enrollment Button */}
           <div className="space-y-2">

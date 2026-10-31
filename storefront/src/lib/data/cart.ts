@@ -160,9 +160,11 @@ export async function addToCart({
 
 /**
  * High-speed direct webinar enrollment action.
- * Optimized for low-latency:
+ * Optimized for low-latency & clean single-purchase guarantee:
  * - If no cart exists yet (new visitor), creates cart WITH items in a single API roundtrip.
- * - If cart already contains this item, skips redundant write API call.
+ * - If cart already contains ONLY this item, skips redundant write API call.
+ * - If cart has stale line items from previous abandoned sessions or different options,
+ *   clears them and ensures ONLY the newly selected webinar option is in the cart.
  */
 export async function fastDirectEnroll({
   variantId,
@@ -185,9 +187,8 @@ export async function fastDirectEnroll({
     ...(await getAuthHeaders()),
   }
 
-  // Case 1: Brand new visitor (no cart cookie exists yet)
-  // Medusa 2.0 supports passing items in cart create payload, doing both in a SINGLE network call!
-  if (!existingCartId) {
+  // Helper to create a fresh dedicated cart with this single webinar item
+  const createFreshCart = async () => {
     const locale = await getLocale()
     const cartResp = await sdk.store.cart.create(
       {
@@ -198,49 +199,72 @@ export async function fastDirectEnroll({
       {},
       headers
     )
-    const cart = cartResp.cart
-    await setCartId(cart.id)
+    const newCart = cartResp.cart
+    await setCartId(newCart.id)
+
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+
+    return { success: true, cartId: newCart.id }
+  }
+
+  // Case 1: Brand new visitor (no cart cookie exists yet)
+  if (!existingCartId) {
+    return await createFreshCart()
+  }
+
+  // Case 2: Existing cart cookie - verify and ensure clean dedicated enrollment
+  try {
+    const cart = await retrieveCart(existingCartId, "id,region_id,*items")
+    if (!cart) {
+      return await createFreshCart()
+    }
+
+    // Fast-path: Cart already has ONLY this exact item
+    const isExactMatch =
+      cart.items &&
+      cart.items.length === 1 &&
+      cart.items[0].variant_id === variantId &&
+      cart.items[0].quantity === 1
+
+    if (isExactMatch) {
+      return { success: true, cartId: cart.id }
+    }
+
+    // Remove any stale or different items from previous sessions/options
+    const itemsToRemove = (cart.items || []).filter((i) => i.variant_id !== variantId)
+    if (itemsToRemove.length > 0) {
+      await Promise.all(
+        itemsToRemove.map((item) =>
+          sdk.store.cart.deleteLineItem(cart.id, item.id, {}, headers).catch(() => {})
+        )
+      )
+    }
+
+    // If variant is not in the cart yet, add it
+    const hasVariant = cart.items?.some((i) => i.variant_id === variantId)
+    if (!hasVariant) {
+      await sdk.store.cart.createLineItem(
+        cart.id,
+        { variant_id: variantId, quantity: 1 },
+        {},
+        headers
+      )
+    }
 
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
 
     return { success: true, cartId: cart.id }
+  } catch (err: any) {
+    console.warn("Direct enrollment notice, creating fresh cart:", err?.message || err)
+    try {
+      return await createFreshCart()
+    } catch (fallbackErr: any) {
+      console.error("Direct enroll fatal error:", fallbackErr?.message || fallbackErr)
+      throw fallbackErr
+    }
   }
-
-  // Case 2: Existing cart cookie - check if item already exists to avoid redundant write
-  const cart = await retrieveCart(existingCartId, "id,region_id,*items")
-  if (!cart) {
-    // If cart was expired or invalid, recreate with item in single call
-    const locale = await getLocale()
-    const cartResp = await sdk.store.cart.create(
-      {
-        region_id: region.id,
-        locale: locale || undefined,
-        items: [{ variant_id: variantId, quantity: 1 }],
-      },
-      {},
-      headers
-    )
-    await setCartId(cartResp.cart.id)
-    const cartCacheTag = await getCacheTag("carts")
-    revalidateTag(cartCacheTag)
-    return { success: true, cartId: cartResp.cart.id }
-  }
-
-  // If item is already in the cart, no network write needed
-  const alreadyInCart = cart.items?.some((i) => i.variant_id === variantId)
-  if (!alreadyInCart) {
-    await sdk.store.cart.createLineItem(
-      cart.id,
-      { variant_id: variantId, quantity: 1 },
-      {},
-      headers
-    )
-    const cartCacheTag = await getCacheTag("carts")
-    revalidateTag(cartCacheTag)
-  }
-
-  return { success: true, cartId: cart.id }
 }
 
 export async function updateLineItem({

@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import WebinarModuleService from "../../../../../modules/webinar/service"
 import { WEBINAR_MODULE } from "../../../../../modules/webinar"
 import { ensureVariantPriceSet } from "../../../../../modules/webinar/utils/price-sync"
@@ -126,10 +126,16 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   // 2. Update Medusa product variant if sku or title changed
   if (variantId && (body.sku || body.title) && webinar.product_id) {
     try {
+      const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+      await pgConnection.raw(
+        `UPDATE product_variant SET title = COALESCE(?, title), sku = COALESCE(?, sku), updated_at = NOW() WHERE id = ?`,
+        [body.title || null, body.sku || null, variantId]
+      ).catch(() => {})
+
       const updateData: Record<string, any> = { id: variantId, manage_inventory: false }
       if (body.sku) updateData.sku = body.sku
       if (body.title) updateData.title = body.title
-      await (productModule.updateProductVariants as any)(variantId, updateData)
+      await (productModule.updateProductVariants as any)(variantId, updateData).catch(() => {})
     } catch (e) {
       // ignore
     }
