@@ -95,12 +95,6 @@ export default defineMiddlewares({
       ],
     },
     {
-      matcher: "/admin/order-monitoring*",
-      middlewares: [
-        authenticate("user", ["session", "bearer", "api-key"]),
-      ],
-    },
-    {
       matcher: "/admin/promotions*",
       middlewares: [
         authenticate("user", ["session", "bearer", "api-key"]),

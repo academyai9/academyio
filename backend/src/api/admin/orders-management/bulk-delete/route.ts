@@ -29,7 +29,6 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     // 1. Clean up child records for all selected orders
     await pgConnection.raw(`DELETE FROM customer_entitlement WHERE order_id IN (${foundPlaceholders})`, foundIds)
     await pgConnection.raw(`DELETE FROM order_email_notification WHERE order_id IN (${foundPlaceholders})`, foundIds)
-    await pgConnection.raw(`DELETE FROM order_monitoring_incident WHERE order_id IN (${foundPlaceholders})`, foundIds)
     await pgConnection.raw(`DELETE FROM order_credit_line WHERE order_id IN (${foundPlaceholders})`, foundIds)
     await pgConnection.raw(`DELETE FROM order_transaction WHERE order_id IN (${foundPlaceholders})`, foundIds)
     await pgConnection.raw(`DELETE FROM order_item WHERE order_id IN (${foundPlaceholders})`, foundIds)

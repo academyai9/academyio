@@ -1086,29 +1086,6 @@ export default function OrdersManagementPage() {
               </div>
             ) : (
               <div className="space-y-6 text-xs">
-                {/* Attention / Incident Alerts Alert Box */}
-                {selectedOrder.incidents && selectedOrder.incidents.length > 0 && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-200">
-                      <ExclamationCircle className="w-4 h-4 text-amber-600" />
-                      <span>Order Reconciliation Incident Flagged</span>
-                    </div>
-                    {selectedOrder.incidents.map((inc) => (
-                      <p key={inc.id} className="text-amber-700 dark:text-amber-300">
-                        {inc.description}
-                      </p>
-                    ))}
-                    <div className="pt-1">
-                      <a
-                        href="/webapp/order-monitoring"
-                        className="text-xs font-bold text-amber-700 dark:text-amber-300 underline"
-                      >
-                        Inspect and reconcile in Order Monitoring →
-                      </a>
-                    </div>
-                  </div>
-                )}
-
                 {/* Customer Information Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-ui-bg-subtle border border-ui-border-base space-y-1">

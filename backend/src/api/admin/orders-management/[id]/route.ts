@@ -93,24 +93,8 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       WHERE ce.order_id = ?;
     `, [order.id])
 
-    // Linked Order Monitoring Incidents
-    const incRes = await pgConnection.raw(`
-      SELECT 
-        id,
-        incident_type,
-        severity,
-        status,
-        description,
-        detection_rule,
-        recommended_action,
-        email_alert_sent,
-        email_alert_sent_at,
-        created_at,
-        resolved_at,
-        resolved_by
-      FROM order_monitoring_incident
-      WHERE order_id = ? OR expected_order_id = ?;
-    `, [order.id, order.id])
+    // Incidents (cleared)
+    const incRes = { rows: [] }
 
     // Linked Cart
     const cartRes = await pgConnection.raw(`
@@ -279,7 +263,6 @@ export const DELETE = async (req: MedusaRequest, res: MedusaResponse) => {
     // 1. Clean up child records
     await pgConnection.raw(`DELETE FROM customer_entitlement WHERE order_id = ?`, [orderId])
     await pgConnection.raw(`DELETE FROM order_email_notification WHERE order_id = ?`, [orderId])
-    await pgConnection.raw(`DELETE FROM order_monitoring_incident WHERE order_id = ?`, [orderId])
     await pgConnection.raw(`DELETE FROM order_credit_line WHERE order_id = ?`, [orderId])
     await pgConnection.raw(`DELETE FROM order_transaction WHERE order_id = ?`, [orderId])
     await pgConnection.raw(`DELETE FROM order_item WHERE order_id = ?`, [orderId])

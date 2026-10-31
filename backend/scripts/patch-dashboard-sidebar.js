@@ -75,7 +75,6 @@ patchFile("chunk-QIJSUXW3.mjs", (code) => {
     icon: /* @__PURE__ */ jsx16(ShoppingCart, {}),
     items: [
       { label: "Orders Hub", to: "/orders-management" },
-      { label: "Order Monitoring", to: "/order-monitoring" },
       { label: "Payment Methods", to: "/payment-methods" }
     ]
   };

@@ -140,21 +140,9 @@ export default function AdminDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [recentCustomers, setRecentCustomers] = useState<RecentCustomer[]>([])
   const [upcomingWebinars, setUpcomingWebinars] = useState<UpcomingWebinar[]>([])
-  const [monitoringInfo, setMonitoringInfo] = useState<{
-    last_reconciliation_at: string | null
-    alert_recipient_email: string
-    open_incidents_count: number
-  }>({
-    last_reconciliation_at: null,
-    alert_recipient_email: "support@academyio.com",
-    open_incidents_count: 0,
-  })
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRange, setSelectedRange] = useState<"today" | "7d" | "30d" | "all">("30d")
-  const [isReconciling, setIsReconciling] = useState(false)
-  const [reconcileMessage, setReconcileMessage] = useState<string | null>(null)
 
   // Selected Order Modal
   const [selectedOrder, setSelectedOrder] = useState<RecentOrder | null>(null)
@@ -180,9 +168,6 @@ export default function AdminDashboardPage() {
       setRecentOrders(data.recent_orders || [])
       setRecentCustomers(data.recent_customers || [])
       setUpcomingWebinars(data.upcoming_webinars || [])
-      if (data.monitoring) {
-        setMonitoringInfo(data.monitoring)
-      }
     } catch (err: any) {
       console.error(err)
       setError(err.message || "Failed to load dashboard overview.")
@@ -194,30 +179,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchOverviewData(selectedRange)
   }, [selectedRange])
-
-  const handleRunReconciliation = async () => {
-    setIsReconciling(true)
-    setReconcileMessage(null)
-    try {
-      const res = await fetch(`/admin/order-monitoring/reconcile`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ dryRun: false }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setReconcileMessage(data.message || "Reconciliation completed successfully.")
-        fetchOverviewData()
-      } else {
-        throw new Error(data.message || "Reconciliation failed.")
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to execute reconciliation.")
-    } finally {
-      setIsReconciling(false)
-    }
-  }
 
   const formatCurrency = (val: number | string | null | undefined, currency = "usd") => {
     const num = parseFloat(String(val || 0))
@@ -353,18 +314,6 @@ export default function AdminDashboardPage() {
             <span>{error}</span>
           </div>
           <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-600">
-            <XMark className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {reconcileMessage && (
-        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 flex items-center justify-between text-xs font-medium shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{reconcileMessage}</span>
-          </div>
-          <button onClick={() => setReconcileMessage(null)} className="text-emerald-400 hover:text-emerald-600">
             <XMark className="w-4 h-4" />
           </button>
         </div>
@@ -768,7 +717,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Panel 3: Upcoming Live Webinars */}
-        <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm space-y-4">
+        <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-emerald-500" />
@@ -817,69 +766,6 @@ export default function AdminDashboardPage() {
                 </div>
               ))
             )}
-          </div>
-        </div>
-
-        {/* Panel 4: System Health & Order Reconciliation */}
-        <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-blue-500" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Platform Integrity & Health Monitor</h3>
-            </div>
-            <a
-              href="/webapp/order-monitoring"
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-            >
-              Order Monitoring →
-            </a>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Transaction Integrity Incidents:</span>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
-                    monitoringInfo.open_incidents_count === 0
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                  }`}
-                >
-                  {monitoringInfo.open_incidents_count === 0
-                    ? "✓ 0 Incidents (Healthy)"
-                    : `⚠ ${monitoringInfo.open_incidents_count} Open Incident(s)`}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Automated Reconciliation:</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  {monitoringInfo.last_reconciliation_at
-                    ? formatDate(monitoringInfo.last_reconciliation_at, true)
-                    : "Scheduled cron active"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Alert Email Recipient:</span>
-                <span className="font-mono text-slate-800 dark:text-slate-200 font-semibold">
-                  {monitoringInfo.alert_recipient_email}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-1 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={handleRunReconciliation}
-                disabled={isReconciling}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-xs bg-white hover:bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 dark:border-slate-800 disabled:opacity-50"
-              >
-                <ArrowPath className={`w-3.5 h-3.5 ${isReconciling ? "animate-spin text-blue-500" : ""}`} />
-                {isReconciling ? "Reconciling..." : "Run Health Check & Reconcile"}
-              </button>
-            </div>
           </div>
         </div>
       </div>

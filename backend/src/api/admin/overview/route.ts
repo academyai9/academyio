@@ -82,15 +82,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     `)
     const oStats = orderStats.rows?.[0] || {}
 
-    // 5. Open Monitoring Incidents Count
-    const incidentStats = await pgConnection.raw(`
-      SELECT COUNT(DISTINCT id) as open_incidents
-      FROM order_monitoring_incident
-      WHERE status IN ('new', 'investigating', 'awaiting_payment_verification');
-    `)
-    const openIncidents = parseInt(incidentStats.rows?.[0]?.open_incidents || "0", 10)
-
-    // 6. Time Series: Revenue & Orders Daily (Last 14 days)
+    // 5. Time Series: Revenue & Orders Daily (Last 14 days)
     const trendResult = await pgConnection.raw(`
       WITH date_series AS (
         SELECT generate_series(
@@ -214,15 +206,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       LIMIT 5;
     `)
 
-    // 11. Monitoring Settings
-    const settingsRes = await pgConnection.raw(`
-      SELECT key, value FROM order_monitoring_setting;
-    `)
-    const settings: Record<string, string> = {}
-    for (const r of settingsRes.rows || []) {
-      settings[r.key] = r.value
-    }
-
     res.json({
       metrics: {
         total_customers: parseInt(cStats.total_customers || "0", 10),
@@ -247,7 +230,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
         canceled_orders: parseInt(oStats.canceled_orders || "0", 10),
         total_revenue: parseFloat(oStats.total_revenue || "0"),
         average_order_value: parseFloat(oStats.average_order_value || "0"),
-        open_incidents: openIncidents,
       },
       chart_revenue: trendResult.rows || [],
       chart_growth: growthTrend.rows || [],
@@ -268,11 +250,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
         ...w,
         registrations_count: parseInt(w.registrations_count || "0", 10),
       })),
-      monitoring: {
-        last_reconciliation_at: settings.last_reconciliation_at || null,
-        alert_recipient_email: settings.alert_recipient_email || "support@academyio.com",
-        open_incidents_count: openIncidents,
-      },
     })
   } catch (error: any) {
     console.error("[Admin Overview API Error]:", error)

@@ -75,17 +75,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     // 5. Requiring Attention Filter
     if (requiringAttention) {
       conditions.push(`(
-        EXISTS (
-          SELECT 1 FROM order_monitoring_incident omi
-          WHERE omi.order_id = o.id AND omi.status IN ('new', 'investigating', 'awaiting_payment_verification')
-        )
-        OR
-        (
-          (o.status = 'completed' OR COALESCE(CAST(s.totals->>'paid_total' AS numeric), 0) >= COALESCE(CAST(s.totals->>'current_order_total' AS numeric), 1))
-          AND NOT EXISTS (
-            SELECT 1 FROM customer_entitlement ce_att
-            WHERE ce_att.order_id = o.id AND ce_att.status = 'active'
-          )
+        (o.status = 'completed' OR COALESCE(CAST(s.totals->>'paid_total' AS numeric), 0) >= COALESCE(CAST(s.totals->>'current_order_total' AS numeric), 1))
+        AND NOT EXISTS (
+          SELECT 1 FROM customer_entitlement ce_att
+          WHERE ce_att.order_id = o.id AND ce_att.status = 'active'
         )
       )`)
     }
@@ -140,14 +133,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
           FROM customer_entitlement ce
           WHERE ce.order_id = o.id
         ) as entitlements,
-        (
-          SELECT json_agg(json_build_object(
-            'id', omi.id,
-            'description', omi.description
-          ))
-          FROM order_monitoring_incident omi
-          WHERE omi.order_id = o.id
-        ) as incidents
+        '[]'::json as incidents
       FROM "order" o
       LEFT JOIN order_summary s ON s.order_id = o.id
       LEFT JOIN customer c ON c.id = o.customer_id

@@ -52,13 +52,18 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       average_order_value: 0,
     }
 
-    // 2. Count Orders Requiring Attention (Open monitoring incidents OR missing entitlements)
+    // 2. Count Orders Requiring Attention (Missing customer entitlements on paid orders)
     const attentionResult = await pgConnection.raw(`
-      SELECT COUNT(DISTINCT id) as open_incidents
-      FROM order_monitoring_incident
-      WHERE status IN ('new', 'investigating', 'awaiting_payment_verification');
+      SELECT COUNT(DISTINCT o.id) as count
+      FROM "order" o
+      LEFT JOIN order_summary s ON s.order_id = o.id
+      WHERE o.deleted_at IS NULL
+        AND (o.status = 'completed' OR COALESCE(CAST(s.totals->>'paid_total' AS numeric), 0) >= COALESCE(CAST(s.totals->>'current_order_total' AS numeric), 1))
+        AND NOT EXISTS (
+          SELECT 1 FROM customer_entitlement ce WHERE ce.order_id = o.id
+        );
     `)
-    const openIncidentsCount = parseInt(attentionResult.rows?.[0]?.open_incidents || 0, 10)
+    const openIncidentsCount = parseInt(attentionResult.rows?.[0]?.count || 0, 10)
 
     // 3. Daily Trend Chart Data (Last 14 days or filtered period)
     const trendResult = await pgConnection.raw(`
@@ -124,15 +129,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       LIMIT 6;
     `)
 
-    // 5. Monitoring Settings / Health
-    const settingsRes = await pgConnection.raw(`
-      SELECT key, value FROM order_monitoring_setting;
-    `)
-    const settings: Record<string, string> = {}
-    for (const r of settingsRes.rows || []) {
-      settings[r.key] = r.value
-    }
-
     res.json({
       metrics: {
         total_orders: parseInt(metrics.total_orders, 10),
@@ -157,11 +153,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
             ? "Partially Paid"
             : "Pending",
       })),
-      monitoring: {
-        last_reconciliation_at: settings.last_reconciliation_at || null,
-        alert_recipient_email: settings.alert_recipient_email || "support@academyio.com",
-        open_incidents_count: openIncidentsCount,
-      },
       range,
     })
   } catch (error: any) {
