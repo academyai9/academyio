@@ -85,14 +85,14 @@ export default function SinglePageCheckoutView({
   const [stripeInitError, setStripeInitError] = useState<string | null>(null)
 
   // Customer & Registration-aligned Billing details state
-  const initialFullName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
-    `${initialCart.billing_address?.first_name || ""} ${initialCart.billing_address?.last_name || ""}`.trim()
+  const initialFullName = `${customer?.first_name || ""} ${customer?.last_name || ""}`.trim() ||
+    `${initialCart?.billing_address?.first_name || ""} ${initialCart?.billing_address?.last_name || ""}`.trim()
 
   const [billingForm, setBillingForm] = useState({
     fullName: initialFullName || "Valued Professional",
-    email: initialCart.email || customer.email || "",
-    phone: initialCart.billing_address?.phone || customer.phone || "",
-    company: initialCart.billing_address?.company || customer.company_name || (customer as any)?.metadata?.company_name || (customer as any)?.metadata?.company || "",
+    email: initialCart?.email || customer?.email || "",
+    phone: initialCart?.billing_address?.phone || customer?.phone || "",
+    company: initialCart?.billing_address?.company || customer?.company_name || (customer as any)?.metadata?.company_name || (customer as any)?.metadata?.company || "",
     ptin: (customer as any)?.metadata?.ptin || "",
     cfpId: (customer as any)?.metadata?.cfp_id || "",
   })
@@ -797,7 +797,7 @@ export default function SinglePageCheckoutView({
                     Registered Attendee Name
                   </span>
                   <span className="font-semibold text-gray-900 dark:text-white mt-0.5 block">
-                    {billingForm.fullName || `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Not provided"}
+                    {billingForm.fullName || `${customer?.first_name || ""} ${customer?.last_name || ""}`.trim() || "Not provided"}
                   </span>
                 </div>
 
@@ -806,7 +806,7 @@ export default function SinglePageCheckoutView({
                     Invoicing / Account Email
                   </span>
                   <span className="font-semibold text-gray-900 dark:text-white mt-0.5 block truncate">
-                    {billingForm.email || customer.email}
+                    {billingForm.email || customer?.email || "Not provided"}
                   </span>
                 </div>
 
@@ -815,7 +815,7 @@ export default function SinglePageCheckoutView({
                     Firm / Organization
                   </span>
                   <span className="font-semibold text-gray-800 dark:text-slate-200 mt-0.5 block">
-                    {billingForm.company || customer.company_name || "Not provided"}
+                    {billingForm.company || customer?.company_name || "Not provided"}
                   </span>
                 </div>
 
@@ -824,7 +824,7 @@ export default function SinglePageCheckoutView({
                     Contact Phone
                   </span>
                   <span className="font-semibold text-gray-800 dark:text-slate-200 mt-0.5 block font-mono">
-                    {billingForm.phone || customer.phone || "Not provided"}
+                    {billingForm.phone || customer?.phone || "Not provided"}
                   </span>
                 </div>
 

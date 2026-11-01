@@ -210,21 +210,22 @@ export default function WebinarPurchaseOptions({
     try {
       let targetVariantId = selectedOption.variantId
 
-      // If variantId is a fallback (starts with default_ or var_custom_), find the real variant
-      if (!targetVariantId || targetVariantId.startsWith("default_") || targetVariantId.startsWith("var_custom_")) {
+      const isPlaceholder = (id: string | undefined | null) =>
+        !id || id.startsWith("default_") || id.startsWith("var_custom_") || id.startsWith("wvm_")
+
+      // If variantId is a fallback (starts with default_, var_custom_, or wvm_), find the real variant
+      if (isPlaceholder(targetVariantId)) {
         const matchingRealVariant = (webinar.variants || []).find(
           (v: any) =>
             v.option_type === selectedOption.type &&
-            v.id &&
-            !v.id.startsWith("default_") &&
-            !v.id.startsWith("var_custom_")
+            !isPlaceholder(v.id)
         )
         if (matchingRealVariant?.id) {
           targetVariantId = matchingRealVariant.id
         } else {
           // Fallback to any real variant on this webinar
           const anyRealVariant = (webinar.variants || []).find(
-            (v: any) => v.id && !v.id.startsWith("default_") && !v.id.startsWith("var_custom_")
+            (v: any) => !isPlaceholder(v.id)
           )
           if (anyRealVariant?.id) {
             targetVariantId = anyRealVariant.id
@@ -232,15 +233,20 @@ export default function WebinarPurchaseOptions({
         }
       }
 
-      if (!targetVariantId || targetVariantId.startsWith("default_")) {
+      if (isPlaceholder(targetVariantId)) {
         throw new Error("This option is currently being configured. Please refresh or select another option.")
       }
 
-      await fastDirectEnroll({
+      const res = await fastDirectEnroll({
         variantId: targetVariantId,
         countryCode,
-        customer,
       })
+
+      if (res?.error || res?.success === false) {
+        setRegisterError(res.error || "Failed to proceed to checkout. Please try again.")
+        setLoading(false)
+        return
+      }
 
       if (!customer) {
         router.push(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)

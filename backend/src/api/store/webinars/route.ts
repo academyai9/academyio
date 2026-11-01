@@ -69,7 +69,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
         return true
       })
       .map((m: any) => ({
-        id: m.variant_id || m.id,
+        id: (m.variant_id && !m.variant_id.startsWith("wvm_") && !m.variant_id.startsWith("var_custom_")) ? m.variant_id : (m.variant_id || m.id),
         mapping_id: m.id,
         title: m.title || "Access Option",
         price: m.price !== null && m.price !== undefined ? m.price : 149,

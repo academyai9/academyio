@@ -31,8 +31,8 @@ export default async function Checkout(props: CheckoutPageProps) {
 
   // 1 & 2: Mandatory Login Guard & Cart Verification (fetched in parallel for minimal latency)
   const [customer, cartData] = await Promise.all([
-    retrieveCustomer(),
-    retrieveCart(),
+    retrieveCustomer().catch(() => null),
+    retrieveCart().catch(() => null),
   ])
 
   if (!customer) {

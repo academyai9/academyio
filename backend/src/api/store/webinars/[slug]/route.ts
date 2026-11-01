@@ -75,8 +75,15 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     if (m.option_type === "pdf" || m.title?.toLowerCase().includes("pdf study guide")) continue
 
     const pVariant = productVariants.find((pv: any) => pv.id === m.variant_id)
+    const effectiveVariantId =
+      pVariant?.id ||
+      (m.variant_id && !m.variant_id.startsWith("wvm_") && !m.variant_id.startsWith("var_custom_") ? m.variant_id : null) ||
+      productVariants[0]?.id ||
+      m.variant_id ||
+      m.id
+
     variants.push({
-      id: m.variant_id || m.id,
+      id: effectiveVariantId,
       mapping_id: m.id,
       title: m.title || pVariant?.title || "Access Option",
       sku: pVariant?.sku || `SKU-${m.variant_id?.slice(-6) || m.id.slice(-6)}`,
