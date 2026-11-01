@@ -29,14 +29,17 @@ export default async function Checkout(props: CheckoutPageProps) {
     redirect("/us/checkout")
   }
 
-  // 1. Mandatory Login Guard: Unauthenticated visitors must register or login before checkout
-  const customer = await retrieveCustomer()
+  // 1 & 2: Mandatory Login Guard & Cart Verification (fetched in parallel for minimal latency)
+  const [customer, cartData] = await Promise.all([
+    retrieveCustomer(),
+    retrieveCart(),
+  ])
+
   if (!customer) {
     redirect(`/${countryCode}/register?returnUrl=/${countryCode}/checkout`)
   }
 
-  // 2. Cart Verification: Cart must exist and have at least 1 item
-  let cart = await retrieveCart()
+  let cart = cartData
   if (!cart || !cart.items || cart.items.length === 0) {
     redirect(`/${countryCode}/webinars`)
   }
@@ -106,7 +109,7 @@ export default async function Checkout(props: CheckoutPageProps) {
     // Parallel fetch: available payment methods & webinar catalog
     const [paymentMethods, webinarsData] = await Promise.all([
       listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
-      getWebinars({ limit: 12 }).catch(() => ({ webinars: [] })),
+      getWebinars({ limit: 4 }).catch(() => ({ webinars: [] })),
     ])
     const webinars = webinarsData.webinars || []
 
@@ -130,8 +133,10 @@ export default async function Checkout(props: CheckoutPageProps) {
             return null
           })
         if (res?.payment_collection) {
-          const refreshedCart = await retrieveCart()
-          if (refreshedCart) cart = refreshedCart
+          cart = {
+            ...cart,
+            payment_collection: res.payment_collection,
+          }
         }
       }
     }
@@ -152,7 +157,7 @@ export default async function Checkout(props: CheckoutPageProps) {
     // Fallback: render view with current cart state
     const [paymentMethods, webinarsData] = await Promise.all([
       listCartPaymentMethods(cart.region?.id ?? "").catch(() => []),
-      getWebinars({ limit: 12 }).catch(() => ({ webinars: [] })),
+      getWebinars({ limit: 4 }).catch(() => ({ webinars: [] })),
     ])
     const webinars = webinarsData.webinars || []
 

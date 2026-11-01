@@ -140,13 +140,6 @@ export default function SinglePageCheckoutView({
     }
   }, [initialCart])
 
-  // Automatic redirect if cart becomes empty
-  useEffect(() => {
-    if (!cart?.items || cart.items.length === 0) {
-      router.push(`/${countryCode}/webinars/upcoming`)
-    }
-  }, [cart?.items?.length, countryCode, router])
-
   // Automatically ensure Stripe session has a valid client_secret when Stripe is selected
   const ensureStripePaymentSession = async (currentCart: HttpTypes.StoreCart) => {
     const existing = currentCart.payment_collection?.payment_sessions?.find(

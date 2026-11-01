@@ -569,9 +569,14 @@ export async function transferCart() {
 
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
-  } catch (error) {
-    console.warn("Notice: Stale cart cleared during cart transfer:", error)
-    await removeCartId()
+  } catch (error: any) {
+    console.warn("Notice: Cart transfer during login:", error?.message || error)
+    // Never remove cart cookie unless the cart genuinely does not exist (404 Not Found)
+    const status = error?.status || error?.statusCode
+    const msg = error?.message?.toLowerCase() || ""
+    if (status === 404 || msg.includes("not found")) {
+      await removeCartId()
+    }
   }
 }
 

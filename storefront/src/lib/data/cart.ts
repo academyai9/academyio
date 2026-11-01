@@ -160,18 +160,25 @@ export async function addToCart({
 
 /**
  * High-speed direct webinar enrollment action.
- * Optimized for low-latency & clean single-purchase guarantee:
- * - If no cart exists yet (new visitor), creates cart WITH items in a single API roundtrip.
- * - If cart already contains ONLY this item, skips redundant write API call.
- * - If cart has stale line items from previous abandoned sessions or different options,
- *   clears them and ensures ONLY the newly selected webinar option is in the cart.
+ * Optimized for lowest latency & clean single-purchase guarantee:
+ * - If cart already contains ONLY this exact item and region, reuses it immediately with zero network overhead.
+ * - Otherwise creates a clean dedicated cart with this single item, customer email, and digital address upfront in 1 single API call.
+ * - Eliminates sequential line item deletion conflicts and avoids blocking server-side page re-renders during navigation.
  */
 export async function fastDirectEnroll({
   variantId,
   countryCode,
+  customer,
 }: {
   variantId: string
   countryCode: string
+  customer?: {
+    email?: string
+    first_name?: string
+    last_name?: string
+    phone?: string
+    company_name?: string
+  } | null
 }) {
   if (!variantId) {
     throw new Error("Missing variant ID when enrolling in webinar")
@@ -187,84 +194,59 @@ export async function fastDirectEnroll({
     ...(await getAuthHeaders()),
   }
 
-  // Helper to create a fresh dedicated cart with this single webinar item
-  const createFreshCart = async () => {
-    const locale = await getLocale()
-    const cartResp = await sdk.store.cart.create(
-      {
-        region_id: region.id,
-        locale: locale || undefined,
-        items: [{ variant_id: variantId, quantity: 1 }],
-      },
-      {},
-      headers
-    )
-    const newCart = cartResp.cart
-    await setCartId(newCart.id)
-
-    const cartCacheTag = await getCacheTag("carts")
-    revalidateTag(cartCacheTag)
-
-    return { success: true, cartId: newCart.id }
-  }
-
-  // Case 1: Brand new visitor (no cart cookie exists yet)
-  if (!existingCartId) {
-    return await createFreshCart()
-  }
-
-  // Case 2: Existing cart cookie - verify and ensure clean dedicated enrollment
-  try {
-    const cart = await retrieveCart(existingCartId, "id,region_id,*items")
-    if (!cart) {
-      return await createFreshCart()
-    }
-
-    // Fast-path: Cart already has ONLY this exact item
-    const isExactMatch =
-      cart.items &&
-      cart.items.length === 1 &&
-      cart.items[0].variant_id === variantId &&
-      cart.items[0].quantity === 1
-
-    if (isExactMatch) {
-      return { success: true, cartId: cart.id }
-    }
-
-    // Remove any stale or different items from previous sessions/options
-    const itemsToRemove = (cart.items || []).filter((i) => i.variant_id !== variantId)
-    if (itemsToRemove.length > 0) {
-      await Promise.all(
-        itemsToRemove.map((item) =>
-          sdk.store.cart.deleteLineItem(cart.id, item.id, {}, headers).catch(() => {})
-        )
-      )
-    }
-
-    // If variant is not in the cart yet, add it
-    const hasVariant = cart.items?.some((i) => i.variant_id === variantId)
-    if (!hasVariant) {
-      await sdk.store.cart.createLineItem(
-        cart.id,
-        { variant_id: variantId, quantity: 1 },
-        {},
-        headers
-      )
-    }
-
-    const cartCacheTag = await getCacheTag("carts")
-    revalidateTag(cartCacheTag)
-
-    return { success: true, cartId: cart.id }
-  } catch (err: any) {
-    console.warn("Direct enrollment notice, creating fresh cart:", err?.message || err)
+  // Fast check: If existing cart already has ONLY this exact variant in this region, reuse it instantly
+  if (existingCartId) {
     try {
-      return await createFreshCart()
-    } catch (fallbackErr: any) {
-      console.error("Direct enroll fatal error:", fallbackErr?.message || fallbackErr)
-      throw fallbackErr
-    }
+      const cart = await retrieveCart(existingCartId, "id,region_id,items.variant_id,items.quantity").catch(() => null)
+      if (
+        cart &&
+        cart.region_id === region.id &&
+        cart.items &&
+        cart.items.length === 1 &&
+        cart.items[0].variant_id === variantId &&
+        cart.items[0].quantity === 1
+      ) {
+        return { success: true, cartId: cart.id }
+      }
+    } catch {}
   }
+
+  // Build high-speed clean dedicated cart payload
+  const locale = await getLocale().catch(() => undefined)
+  const cartPayload: any = {
+    region_id: region.id,
+    locale: locale || undefined,
+    items: [{ variant_id: variantId, quantity: 1 }],
+  }
+
+  // Pre-attach customer email & digital addresses upfront in the creation payload
+  if (customer?.email) {
+    cartPayload.email = customer.email
+    const defaultDigitalAddress = {
+      first_name: customer.first_name || "Valued",
+      last_name: customer.last_name || "Professional",
+      address_1: "Digital Delivery",
+      address_2: "",
+      city: "New York",
+      province: "NY",
+      postal_code: "10001",
+      country_code: countryCode.toLowerCase() || "us",
+      phone: customer.phone || "555-0100",
+      company: customer.company_name || "",
+    }
+    cartPayload.shipping_address = defaultDigitalAddress
+    cartPayload.billing_address = defaultDigitalAddress
+  }
+
+  const cartResp = await sdk.store.cart.create(
+    cartPayload,
+    {},
+    headers
+  )
+  const newCart = cartResp.cart
+  await setCartId(newCart.id)
+
+  return { success: true, cartId: newCart.id }
 }
 
 export async function updateLineItem({
