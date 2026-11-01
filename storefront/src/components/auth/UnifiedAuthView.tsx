@@ -64,6 +64,7 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Login Specific State
@@ -171,13 +172,15 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
       const result = await login(null, formData)
       if (result) {
         setError(typeof result === "string" ? result : "Invalid email or password.")
+        setLoading(false)
       } else {
-        window.location.href = returnUrl || `/${countryCode}/dashboard`
+        setIsSuccess(true)
+        const dest = returnUrl || `/${countryCode}/dashboard`
+        window.location.replace(dest)
         return
       }
     } catch (err: any) {
       setError(err?.message || "Failed to log in.")
-    } finally {
       setLoading(false)
     }
   }
@@ -279,15 +282,17 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
         setError(result)
         setCaptchaToken("")
         setCaptchaResetKey((k) => k + 1)
+        setLoading(false)
       } else {
-        window.location.href = returnUrl || `/${countryCode}/dashboard`
+        setIsSuccess(true)
+        const dest = returnUrl || `/${countryCode}/dashboard`
+        window.location.replace(dest)
         return
       }
     } catch (err: any) {
       setError(err?.message || "Failed to register account.")
       setCaptchaToken("")
       setCaptchaResetKey((k) => k + 1)
-    } finally {
       setLoading(false)
     }
   }
@@ -745,10 +750,15 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || !captchaToken}
+                disabled={loading || isSuccess || !captchaToken}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
               >
-                {loading ? (
+                {isSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                    <span>{isCheckoutIntent ? "Verified! Taking you to Checkout..." : "Success! Redirecting to Dashboard..."}</span>
+                  </>
+                ) : loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Creating Account & Securing Profile...</span>
@@ -849,10 +859,15 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isSuccess}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer group"
               >
-                {loading ? (
+                {isSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                    <span>{isCheckoutIntent ? "Verified! Taking you to Checkout..." : "Success! Redirecting to Dashboard..."}</span>
+                  </>
+                ) : loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Authenticating...</span>

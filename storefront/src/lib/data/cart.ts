@@ -168,6 +168,7 @@ export async function addToCart({
 export async function fastDirectEnroll({
   variantId,
   countryCode,
+  customer,
 }: {
   variantId: string
   countryCode: string
@@ -208,12 +209,34 @@ export async function fastDirectEnroll({
     // Build fresh cart for this single webinar purchase
     const locale = await getLocale().catch(() => undefined)
     
-    // Create base cart with region (clean, standard Medusa payload)
+    // Standard digital delivery address for webinars
+    const defaultDigitalAddress = {
+      first_name: customer?.first_name || "Valued",
+      last_name: customer?.last_name || "Professional",
+      address_1: "Digital Delivery",
+      address_2: "",
+      city: "New York",
+      province: "NY",
+      postal_code: "10001",
+      country_code: (countryCode || "us").toLowerCase(),
+      phone: customer?.phone || "555-0100",
+      company: customer?.company_name || "",
+    }
+
+    const cartCreatePayload: any = {
+      region_id: region.id,
+      locale: locale || undefined,
+      shipping_address: defaultDigitalAddress,
+      billing_address: defaultDigitalAddress,
+    }
+
+    // Safely assign email only if user has active auth token to avoid guest conflict in Medusa workflow
+    if (customer?.email && (headers as any)?.authorization) {
+      cartCreatePayload.email = customer.email
+    }
+
     const cartResp = await sdk.store.cart.create(
-      {
-        region_id: region.id,
-        locale: locale || undefined,
-      },
+      cartCreatePayload,
       {},
       headers
     )
@@ -233,6 +256,28 @@ export async function fastDirectEnroll({
       {},
       headers
     )
+
+    // Pre-attach instant digital fulfillment shipping method so checkout loads with zero delay
+    try {
+      const shippingOptions = await listCartShippingMethods(newCart.id)
+      if (shippingOptions && shippingOptions.length > 0) {
+        const digitalOption =
+          shippingOptions.find(
+            (o) =>
+              o.name?.toLowerCase().includes("digital") ||
+              o.name?.toLowerCase().includes("instant") ||
+              o.amount === 0
+          ) || shippingOptions[0]
+        if (digitalOption) {
+          await sdk.store.cart.addShippingMethod(
+            newCart.id,
+            { option_id: digitalOption.id },
+            {},
+            headers
+          ).catch(() => null)
+        }
+      }
+    } catch (_) {}
 
     // Save cart ID in cookie
     await setCartId(newCart.id)

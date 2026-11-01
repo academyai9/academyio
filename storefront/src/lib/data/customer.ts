@@ -169,142 +169,7 @@ export async function signup(_currentState: unknown, formData: FormData) {
     metadata,
   }
 
-  // 3. Pre-check for Duplicate Email and Account Claiming Eligibility
-  let existingCustomerId: string | null = null
-  let existingHasAuth = false
-
-  try {
-    const client = await pool.connect()
-    try {
-      // Clean up any dangling orphaned identities with no customer or user attached
-      await client.query(
-        `DELETE FROM provider_identity 
-         WHERE auth_identity_id IN (
-           SELECT id FROM auth_identity 
-           WHERE app_metadata IS NULL OR (app_metadata->>'customer_id' IS NULL AND app_metadata->>'user_id' IS NULL)
-         ) AND LOWER(entity_id) = LOWER($1)`,
-        [customerForm.email]
-      )
-      await client.query(
-        `DELETE FROM auth_identity 
-         WHERE (app_metadata IS NULL OR (app_metadata->>'customer_id' IS NULL AND app_metadata->>'user_id' IS NULL))
-           AND id NOT IN (SELECT auth_identity_id FROM provider_identity WHERE auth_identity_id IS NOT NULL)`
-      )
-
-      // Check if customer exists and whether they already have an active auth identity
-      const existingRes = await client.query(
-        `SELECT c.id, c.email, ai.id AS auth_id
-         FROM customer c
-         LEFT JOIN auth_identity ai ON (ai.app_metadata->>'customer_id' = c.id AND ai.deleted_at IS NULL)
-         WHERE LOWER(c.email) = LOWER($1) AND c.deleted_at IS NULL
-         LIMIT 1`,
-        [customerForm.email]
-      )
-      if (existingRes.rows.length > 0) {
-        existingCustomerId = existingRes.rows[0].id
-        existingHasAuth = Boolean(existingRes.rows[0].auth_id)
-      }
-    } finally {
-      client.release()
-    }
-  } catch (dbErr) {
-    console.warn("Notice: duplicate email pre-check query:", dbErr)
-  }
-
-  // If customer already has a full account with auth credentials, direct them to sign in
-  if (existingCustomerId && existingHasAuth) {
-    return "An account with this email address already exists. Please sign in instead."
-  }
-
-  // If customer was created via guest checkout (exists in customer table, but has no auth identity yet),
-  // allow them to claim their account and set their password!
-  if (existingCustomerId && !existingHasAuth) {
-    try {
-      const token = await sdk.auth.register("customer", "emailpass", {
-        email: customerForm.email,
-        password: password,
-        captcha_token: captchaToken,
-      } as any)
-
-      let authIdentityId: string | null = null
-      if (typeof token === "string") {
-        try {
-          const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString())
-          authIdentityId = payload.auth_identity_id || null
-        } catch (_) {}
-      }
-
-      const client = await pool.connect()
-      try {
-        if (!authIdentityId) {
-          const piRes = await client.query(
-            `SELECT ai.id FROM provider_identity pi
-             JOIN auth_identity ai ON ai.id = pi.auth_identity_id
-             WHERE LOWER(pi.entity_id) = LOWER($1) AND pi.provider = 'emailpass' AND pi.deleted_at IS NULL
-             LIMIT 1`,
-            [customerForm.email]
-          )
-          if (piRes.rows.length > 0) {
-            authIdentityId = piRes.rows[0].id
-          }
-        }
-
-        if (authIdentityId) {
-          await client.query(
-            `UPDATE auth_identity 
-             SET app_metadata = jsonb_set(COALESCE(app_metadata, '{}'::jsonb), '{customer_id}', to_jsonb($1::text)),
-                 updated_at = NOW()
-             WHERE id = $2`,
-            [existingCustomerId, authIdentityId]
-          )
-        }
-
-        await client.query(
-          `UPDATE customer
-           SET first_name = COALESCE(NULLIF($1, ''), first_name),
-               last_name = COALESCE(NULLIF($2, ''), last_name),
-               phone = COALESCE(NULLIF($3, ''), phone),
-               company_name = COALESCE(NULLIF($4, ''), company_name),
-               metadata = COALESCE($5::jsonb, metadata),
-               has_account = true,
-               updated_at = NOW()
-           WHERE id = $6`,
-          [
-            customerForm.first_name || null,
-            customerForm.last_name || null,
-            customerForm.phone || null,
-            customerForm.company_name || null,
-            customerForm.metadata ? JSON.stringify(customerForm.metadata) : null,
-            existingCustomerId,
-          ]
-        )
-      } finally {
-        client.release()
-      }
-
-      const loginToken = await sdk.auth.login("customer", "emailpass", {
-        email: customerForm.email,
-        password,
-      })
-
-      await setAuthToken(loginToken as string)
-
-      const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
-
-      await transferCart()
-
-      return { id: existingCustomerId, email: customerForm.email }
-    } catch (claimErr: any) {
-      console.error("Account claiming error:", claimErr)
-      const msg = claimErr?.message || claimErr?.toString() || ""
-      if (msg.includes("Identity with email already exists") || msg.includes("already exists")) {
-        return "An account with this email address already exists. Please sign in instead."
-      }
-      return msg || "Failed to set up account. Please try again."
-    }
-  }
-
+  // 3. Fast Direct Registration with Medusa Backend
   try {
     const token = await sdk.auth.register("customer", "emailpass", {
       email: customerForm.email,
@@ -312,18 +177,14 @@ export async function signup(_currentState: unknown, formData: FormData) {
       captcha_token: captchaToken,
     } as any)
 
-    await setAuthToken(token as string)
-
-    const headers = {
-      ...(await getAuthHeaders()),
-    }
-
+    // Create customer record linked to auth identity
     const { customer: createdCustomer } = await sdk.store.customer.create(
       customerForm,
       {},
-      headers
+      { authorization: `Bearer ${token}` }
     )
 
+    // Generate authenticated customer session token
     const loginToken = await sdk.auth.login("customer", "emailpass", {
       email: customerForm.email,
       password,
@@ -331,36 +192,97 @@ export async function signup(_currentState: unknown, formData: FormData) {
 
     await setAuthToken(loginToken as string)
 
-    // Explicitly update metadata and additional fields with authenticated session token
-    const authHeaders = {
-      ...(await getAuthHeaders()),
-    }
-    await sdk.store.customer
-      .update(
-        {
-          company_name: customerForm.company_name,
-          phone: customerForm.phone,
-          metadata: customerForm.metadata,
-        },
-        {},
-        authHeaders
-      )
-      .catch((e) => console.warn("Notice: customer metadata saved via create payload:", e))
-
     const customerCacheTag = await getCacheTag("customers")
-    revalidateTag(customerCacheTag)
+    if (customerCacheTag) revalidateTag(customerCacheTag)
 
-    await transferCart()
+    await transferCart().catch(() => null)
 
     return createdCustomer
   } catch (error: any) {
     const msg = error?.message || error?.toString() || ""
+
     if (msg.includes("Identity with email already exists") || msg.includes("already exists")) {
+      // Check if this was a past guest purchase customer without an account password
+      try {
+        const guestRes = await pool.query(
+          `SELECT c.id FROM customer c
+           LEFT JOIN auth_identity ai ON (ai.app_metadata->>'customer_id' = c.id AND ai.deleted_at IS NULL)
+           WHERE LOWER(c.email) = LOWER($1) AND c.deleted_at IS NULL AND ai.id IS NULL
+           LIMIT 1`,
+          [customerForm.email]
+        )
+
+        if (guestRes.rows.length > 0) {
+          const existingCustomerId = guestRes.rows[0].id
+          const claimToken = await sdk.auth.register("customer", "emailpass", {
+            email: customerForm.email,
+            password: password,
+            captcha_token: captchaToken,
+          } as any)
+
+          let authIdentityId: string | null = null
+          if (typeof claimToken === "string") {
+            try {
+              const payload = JSON.parse(Buffer.from(claimToken.split(".")[1], "base64").toString())
+              authIdentityId = payload.auth_identity_id || null
+            } catch (_) {}
+          }
+
+          if (authIdentityId) {
+            await pool.query(
+              `UPDATE auth_identity 
+               SET app_metadata = jsonb_set(COALESCE(app_metadata, '{}'::jsonb), '{customer_id}', to_jsonb($1::text)),
+                   updated_at = NOW()
+               WHERE id = $2`,
+              [existingCustomerId, authIdentityId]
+            )
+          }
+
+          await pool.query(
+            `UPDATE customer
+             SET first_name = COALESCE(NULLIF($1, ''), first_name),
+                 last_name = COALESCE(NULLIF($2, ''), last_name),
+                 phone = COALESCE(NULLIF($3, ''), phone),
+                 company_name = COALESCE(NULLIF($4, ''), company_name),
+                 metadata = COALESCE($5::jsonb, metadata),
+                 has_account = true,
+                 updated_at = NOW()
+             WHERE id = $6`,
+            [
+              customerForm.first_name || null,
+              customerForm.last_name || null,
+              customerForm.phone || null,
+              customerForm.company_name || null,
+              customerForm.metadata ? JSON.stringify(customerForm.metadata) : null,
+              existingCustomerId,
+            ]
+          )
+
+          const sessionToken = await sdk.auth.login("customer", "emailpass", {
+            email: customerForm.email,
+            password,
+          })
+
+          await setAuthToken(sessionToken as string)
+
+          const customerCacheTag = await getCacheTag("customers")
+          if (customerCacheTag) revalidateTag(customerCacheTag)
+
+          await transferCart().catch(() => null)
+
+          return { id: existingCustomerId, email: customerForm.email }
+        }
+      } catch (claimErr) {
+        console.warn("Guest account claiming notice:", claimErr)
+      }
+
       return "An account with this email address already exists. Please sign in instead."
     }
+
     if (msg.includes("invalid_captcha") || msg.includes("CAPTCHA")) {
       return "Security verification failed. Please complete the CAPTCHA check and try again."
     }
+
     return msg || "Failed to create account. Please try again."
   }
 }
@@ -437,53 +359,13 @@ export async function login(_currentState: unknown, formData: FormData) {
     return "Please enter both your email address and password."
   }
 
-  // 1. Optional check if account is suspended or inactive (isolated & non-blocking)
-  try {
-    const client = await pool.connect()
-    try {
-      const statusCheck = await client.query(
-        `SELECT metadata->>'account_status' as status FROM customer WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1`,
-        [email]
-      )
-      const accStatus = statusCheck.rows[0]?.status
-      if (accStatus === "inactive" || accStatus === "suspended") {
-        return `Your account has been ${accStatus}. Please contact AcademyIO Support at support@academyio.com for assistance.`
-      }
-    } finally {
-      client.release()
-    }
-  } catch (statusErr) {
-    console.warn("Notice: optional account status check skipped:", statusErr)
-  }
-
-  // 2. Core Authentication with Medusa Backend
+  // 1. Core Authentication with Medusa Backend (Fast Direct Path)
   let token: string | null = null
   try {
     token = (await sdk.auth.login("customer", "emailpass", { email, password })) as string
   } catch (error: any) {
     console.warn("Login auth error response:", error?.message || error)
     const msg = error?.message || error?.toString() || ""
-
-    // Optional check: if customer exists from guest checkout but has no password created yet
-    try {
-      const client = await pool.connect()
-      try {
-        const guestCheck = await client.query(
-          `SELECT c.id FROM customer c
-           LEFT JOIN auth_identity ai ON (ai.app_metadata->>'customer_id' = c.id AND ai.deleted_at IS NULL)
-           WHERE LOWER(c.email) = LOWER($1) AND c.deleted_at IS NULL AND ai.id IS NULL
-           LIMIT 1`,
-          [email]
-        )
-        if (guestCheck.rows.length > 0) {
-          return "An account was found for your past webinar purchases, but no password has been created yet. Please click 'Register' to set your password and access your customer dashboard."
-        }
-      } finally {
-        client.release()
-      }
-    } catch (e) {
-      // Safe fallback
-    }
 
     if (
       msg.toLowerCase().includes("unauthorized") ||
@@ -492,7 +374,7 @@ export async function login(_currentState: unknown, formData: FormData) {
       msg.toLowerCase().includes("401") ||
       msg.includes("Identity with email")
     ) {
-      return "Invalid email or password. Please verify your credentials and try again."
+      return "Invalid email or password. Please check your credentials and try again."
     }
 
     if (msg.includes("timeout") || msg.includes("Timeout") || msg.includes("fetch failed")) {
@@ -506,35 +388,38 @@ export async function login(_currentState: unknown, formData: FormData) {
     return "Unable to log in. Please verify your credentials."
   }
 
-  // 3. Set Auth Cookie & Invalidate Cache Tags
+  // 2. Set Auth Cookie & Invalidate Cache Tags
   await setAuthToken(token)
   const customerCacheTag = await getCacheTag("customers")
-  revalidateTag(customerCacheTag)
+  if (customerCacheTag) revalidateTag(customerCacheTag)
 
-  // 4. Record last login timestamp (safe & non-blocking)
-  try {
-    const logClient = await pool.connect()
-    try {
-      await logClient.query(
-        `UPDATE customer 
-         SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{last_login_at}', to_jsonb(NOW()::text)),
-             updated_at = NOW()
-         WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
-        [email]
-      )
-    } finally {
-      logClient.release()
-    }
-  } catch (err) {
-    console.warn("Notice: could not record last_login_at:", err)
-  }
+  // 3. Fire-and-forget: Record last login timestamp asynchronously in background (non-blocking)
+  pool
+    .query(
+      `UPDATE customer 
+       SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{last_login_at}', to_jsonb(NOW()::text)),
+           updated_at = NOW()
+       WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
+      [email]
+    )
+    .catch((err) => console.warn("Notice: could not record last_login_at:", err?.message || err))
 
-  // 5. Transfer Cart if applicable
+  // 4. Transfer Cart if user enrolled before logging in
   try {
     await transferCart()
   } catch (cartError) {
     console.warn("Notice: Cart transfer during login skipped:", cartError)
   }
+
+  // 5. Account status verification (fast check)
+  try {
+    const customer = await retrieveCustomer().catch(() => null)
+    const accStatus = customer?.metadata?.account_status
+    if (accStatus === "inactive" || accStatus === "suspended") {
+      await removeAuthToken()
+      return `Your account has been ${accStatus}. Please contact AcademyIO Support at support@academyio.com for assistance.`
+    }
+  } catch (_) {}
 
   return null
 }

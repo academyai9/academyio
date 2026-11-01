@@ -240,6 +240,7 @@ export default function WebinarPurchaseOptions({
       const res = await fastDirectEnroll({
         variantId: targetVariantId,
         countryCode,
+        customer,
       })
 
       if (res?.error || res?.success === false) {

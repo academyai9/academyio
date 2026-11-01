@@ -1153,12 +1153,13 @@ export default function SinglePageCheckoutView({
             {/* Webinar Items Cards */}
             <div className="space-y-4 mb-6">
               {cart.items?.map((item) => {
-                const matchedWebinar = webinars.find(
+                const itemMeta = ((item as any).metadata || {}) as Record<string, any>
+                const matchedWebinar = (webinars || []).find(
                   (w) =>
                     w.product_id === item.product_id ||
                     w.id === item.product_id ||
                     w.variants?.some((v: any) => v.id === item.variant_id)
-                )
+                ) || itemMeta
 
                 const isLive = item.variant_title?.toLowerCase().includes("live") || (!matchedWebinar?.is_completed && matchedWebinar?.has_live)
                 const eventDateFormatted = matchedWebinar?.event_date
