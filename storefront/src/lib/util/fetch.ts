@@ -8,15 +8,22 @@ export async function fetchWithTimeout(
   timeoutMs = 5000
 ): Promise<Response> {
   let finalInput = input
-  if (
-    (process.env.NODE_ENV === "production" || process.env.VERCEL) &&
-    typeof finalInput === "string" &&
-    finalInput.startsWith("http://localhost:9000")
-  ) {
-    finalInput = finalInput.replace(
-      "http://localhost:9000",
-      "https://academyio-backend-east.onrender.com"
-    )
+  if (typeof finalInput === "string") {
+    if (finalInput.includes("academyio-backend.onrender.com") && !finalInput.includes("-east")) {
+      finalInput = finalInput.replace(
+        "academyio-backend.onrender.com",
+        "academyio-backend-east.onrender.com"
+      )
+    }
+    if (
+      (process.env.NODE_ENV === "production" || process.env.VERCEL) &&
+      finalInput.startsWith("http://localhost:9000")
+    ) {
+      finalInput = finalInput.replace(
+        "http://localhost:9000",
+        "https://academyio-backend-east.onrender.com"
+      )
+    }
   }
 
   const controller = new AbortController()

@@ -1,10 +1,23 @@
 // Pure environment constants with zero dependencies to prevent pulling Node SDK into client bundles
-export const BACKEND_URL =
-  process.env.MEDUSA_BACKEND_URL ||
-  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
-  (process.env.NODE_ENV === "production" || process.env.VERCEL
+const resolveBackendUrl = () => {
+  const envUrl =
+    process.env.MEDUSA_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
+
+  if (envUrl) {
+    // Automatically route away from suspended or deprecated Oregon instance to high-speed Ohio instance
+    if (envUrl.includes("academyio-backend.onrender.com") && !envUrl.includes("-east")) {
+      return "https://academyio-backend-east.onrender.com"
+    }
+    return envUrl
+  }
+
+  return process.env.NODE_ENV === "production" || process.env.VERCEL
     ? "https://academyio-backend-east.onrender.com"
-    : "http://localhost:9000")
+    : "http://localhost:9000"
+}
+
+export const BACKEND_URL = resolveBackendUrl()
 
 export const PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||

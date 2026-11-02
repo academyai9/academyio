@@ -235,27 +235,51 @@ export async function fastDirectEnroll({
       cartCreatePayload.email = customer.email
     }
 
-    const cartResp = await sdk.store.cart.create(
-      cartCreatePayload,
-      {},
-      headers
-    )
+    let cartResp: any = null
+    try {
+      cartResp = await sdk.store.cart.create(
+        cartCreatePayload,
+        {},
+        headers
+      )
+    } catch (createErr: any) {
+      console.warn("Notice: cart.create with auth headers failed, retrying as clean session:", createErr?.message || createErr)
+      delete cartCreatePayload.email
+      cartResp = await sdk.store.cart.create(
+        cartCreatePayload,
+        {},
+        {}
+      )
+    }
 
-    const newCart = cartResp.cart
+    const newCart = cartResp?.cart
     if (!newCart?.id) {
       return { success: false, error: "Failed to initialize enrollment session. Please try again." }
     }
 
-    // Add selected webinar variant to cart
-    await sdk.store.cart.createLineItem(
-      newCart.id,
-      {
-        variant_id: variantId,
-        quantity: 1,
-      },
-      {},
-      headers
-    )
+    // Add selected webinar variant to cart with clean fallback
+    try {
+      await sdk.store.cart.createLineItem(
+        newCart.id,
+        {
+          variant_id: variantId,
+          quantity: 1,
+        },
+        {},
+        headers
+      )
+    } catch (lineErr: any) {
+      console.warn("Notice: createLineItem with auth headers failed, retrying clean:", lineErr?.message || lineErr)
+      await sdk.store.cart.createLineItem(
+        newCart.id,
+        {
+          variant_id: variantId,
+          quantity: 1,
+        },
+        {},
+        {}
+      )
+    }
 
     // Pre-attach instant digital fulfillment shipping method so checkout loads with zero delay
     try {
