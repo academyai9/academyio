@@ -3,7 +3,7 @@ export const BACKEND_URL =
   process.env.MEDUSA_BACKEND_URL ||
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
   (process.env.NODE_ENV === "production" || process.env.VERCEL
-    ? "https://academyio-backend.onrender.com"
+    ? "https://academyio-backend-east.onrender.com"
     : "http://localhost:9000")
 
 export const PUBLISHABLE_KEY =

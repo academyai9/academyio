@@ -15,7 +15,7 @@ export async function fetchWithTimeout(
   ) {
     finalInput = finalInput.replace(
       "http://localhost:9000",
-      "https://academyio-backend.onrender.com"
+      "https://academyio-backend-east.onrender.com"
     )
   }
 
