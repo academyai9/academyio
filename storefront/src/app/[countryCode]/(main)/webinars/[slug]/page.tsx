@@ -20,7 +20,7 @@ import { retrieveCustomer } from "@lib/data/customer"
 import { getActivePromotionalBanner } from "@lib/data/promotions"
 import WebinarPurchaseOptions from "@/components/webinars/WebinarPurchaseOptions"
 import WebinarCard from "@/components/webinars/WebinarCard"
-import WebinarCreditsAndInfo from "@/components/webinars/WebinarCreditsAndInfo"
+import WebinarDetailsTabs from "@/components/webinars/WebinarDetailsTabs"
 import WebinarPromotionalBanner from "@/components/promotions/WebinarPromotionalBanner"
 import WebinarQuickNav from "@/components/webinars/WebinarQuickNav"
 import WebinarStickyBottomBar from "@/components/webinars/WebinarStickyBottomBar"
@@ -163,97 +163,13 @@ export default async function WebinarDetailsPage(props: {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Course Details */}
-          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
-            {/* About the Instructor */}
-            <div id="instructor" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-4">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">About the Instructor</h2>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  {webinar.speaker_photo && (
-                    <img
-                      src={webinar.speaker_photo}
-                      alt={webinar.speaker_name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-gray-100 dark:border-slate-700 shadow-xs shrink-0"
-                    />
-                  )}
-                  <div>
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-slate-100">{webinar.speaker_name}</h3>
-                    <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-0.5">{webinar.speaker_title || "Subject Matter Authority"}</p>
-                  </div>
-                </div>
-
-                {webinar.speaker_id && (
-                  <Link
-                    href={`/${countryCode}/speakers/${webinar.speaker_id}`}
-                    className="shrink-0 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors"
-                  >
-                    View Faculty Profile →
-                  </Link>
-                )}
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
-                {webinar.speaker_bio || "Nationally recognized educator with extensive hands-on experience advising clients and training practitioners."}
-              </p>
-            </div>
-
-            {/* Course Overview & Program Description */}
-            <div id="overview" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Course Overview & Program Description</h2>
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-slate-300 leading-relaxed space-y-2.5"
-                dangerouslySetInnerHTML={{ __html: webinar.description || "<p>Full program description available.</p>" }}
-              />
-            </div>
-
-            {/* Learning Objectives */}
-            {webinar.learning_objectives && webinar.learning_objectives.length > 0 && (
-              <div id="objectives" className="scroll-mt-28 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Key Learning Objectives</h2>
-                <ul className="space-y-2.5">
-                  {webinar.learning_objectives.map((obj: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-gray-700 dark:text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                      <span>{obj}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Target Audience & Prerequisites */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6 sm:p-7 shadow-xs space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">Target Audience & Qualifications</h2>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
-                {webinar.target_audience || "CPAs, Enrolled Agents (EAs), Tax Attorneys, Controllers, Financial Officers, and Corporate Tax Preparers."}
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-gray-600 dark:text-slate-400">
-                <div className="p-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl">
-                  <strong className="text-gray-900 dark:text-slate-200">Program Level:</strong> Intermediate to Advanced
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl">
-                  <strong className="text-gray-900 dark:text-slate-200">Prerequisites:</strong> Basic knowledge of federal taxation & financial reporting
-                </div>
-              </div>
-            </div>
-
-            {/* Credits and Other Information */}
-            <div id="credits" className="scroll-mt-28">
-              <WebinarCreditsAndInfo webinar={webinar} creditInfo={webinar.credit_info} />
-            </div>
-
-            {/* Refund & Cancellation Policy */}
-            <div className="bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 flex items-start gap-3.5">
-              <ShieldAlert className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-slate-100">Cancellation & Guarantee Policy</h4>
-                <p className="text-xs text-gray-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                  {(webinar as any).refund_policy || "Full refunds are granted up to 24 hours prior to the live session broadcast. Self-study recordings provide 1 year of continuous access."}
-                </p>
-              </div>
-            </div>
+          {/* Left Column: Course Details Organized into Tabs */}
+          <div className="lg:col-span-7">
+            <WebinarDetailsTabs
+              webinar={webinar}
+              countryCode={countryCode}
+              creditInfo={webinar.credit_info}
+            />
           </div>
 
           {/* Right Column: Sticky Purchase Box */}
