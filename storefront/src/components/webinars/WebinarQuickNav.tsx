@@ -113,7 +113,7 @@ export default function WebinarQuickNav({
                     : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
-                Accreditation & Credits
+                Credits
               </button>
             )}
           </div>

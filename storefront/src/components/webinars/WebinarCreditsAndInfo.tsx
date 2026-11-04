@@ -104,11 +104,11 @@ export default function WebinarCreditsAndInfo({
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-amber-500 shrink-0" />
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Credits and Other Information
+              Continuing Education & CPE Credits
             </h2>
           </div>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-            Program qualifications, field of study classifications, and approved accreditation details.
+            Official accreditation approvals, regulatory compliance classifications, and certificate details.
           </p>
         </div>
 
