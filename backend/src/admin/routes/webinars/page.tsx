@@ -187,7 +187,6 @@ export default function WebinarsAdminPage() {
     price_live: 149,
     price_recording: 149,
     price_transcript: 49,
-    price_pdf: 29,
     price_bundle: 249,
   })
 
@@ -376,7 +375,6 @@ export default function WebinarsAdminPage() {
       price_live: 149,
       price_recording: 149,
       price_transcript: 49,
-      price_pdf: 29,
       price_bundle: 249,
     })
     setIsCreateModalOpen(true)
@@ -406,7 +404,6 @@ export default function WebinarsAdminPage() {
       price_live: 149,
       price_recording: 149,
       price_transcript: 49,
-      price_pdf: 29,
       price_bundle: 249,
     })
     setIsCreateModalOpen(true)
@@ -426,7 +423,6 @@ export default function WebinarsAdminPage() {
         live: webinarForm.price_live,
         recording: webinarForm.price_recording,
         transcript: webinarForm.price_transcript,
-        pdf: webinarForm.price_pdf,
         bundle: webinarForm.price_bundle,
       },
     }
@@ -2030,7 +2026,7 @@ export default function WebinarsAdminPage() {
                   <span className="block text-neutral-800 dark:text-neutral-200 uppercase tracking-wider text-[11px] font-bold">
                     Custom Variant Pricing for this Webinar ($ USD)
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div>
                       <label className="block text-neutral-500 dark:text-neutral-400 text-[10px]">Live Access ($)</label>
                       <Input
@@ -2058,16 +2054,6 @@ export default function WebinarsAdminPage() {
                         min="1"
                         value={webinarForm.price_transcript}
                         onChange={(e) => setWebinarForm({ ...webinarForm, price_transcript: parseInt(e.target.value) || 0 })}
-                        className="font-normal text-xs rounded-xl bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-neutral-500 dark:text-neutral-400 text-[10px]">PDF Download ($)</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={webinarForm.price_pdf}
-                        onChange={(e) => setWebinarForm({ ...webinarForm, price_pdf: parseInt(e.target.value) || 0 })}
                         className="font-normal text-xs rounded-xl bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
                       />
                     </div>
