@@ -91,6 +91,7 @@ export interface WebinarItem {
   category: string
   tags?: string[]
   learning_objectives?: string[]
+  topics_covered?: string[]
   target_audience?: string | null
   cpe_credits: number
   status: string

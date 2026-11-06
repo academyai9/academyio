@@ -17,6 +17,7 @@ import {
   Layers,
   MessageSquare,
   ShieldAlert,
+  ListChecks,
 } from "lucide-react"
 import WebinarCreditsAndInfo from "./WebinarCreditsAndInfo"
 
@@ -214,6 +215,48 @@ export default function WebinarDetailsTabs({
                       </div>
                       <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                         {obj}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Topics Covered */}
+            {webinar.topics_covered && Array.isArray(webinar.topics_covered) && webinar.topics_covered.length > 0 && (
+              <div
+                id="topics-covered"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-xs space-y-4"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                      <ListChecks className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">
+                        Topics Covered
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Detailed program syllabus and subject areas explored in this session
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
+                    {webinar.topics_covered.length} Topics
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {webinar.topics_covered.map((topic: string, i: number) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-slate-50/70 dark:bg-slate-850/50 border border-slate-200/60 dark:border-slate-800/80 transition-colors hover:border-blue-200 dark:hover:border-blue-800/60"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 shrink-0 mt-2" />
+                      <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
+                        {topic}
                       </p>
                     </div>
                   ))}

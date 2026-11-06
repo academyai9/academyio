@@ -23,6 +23,7 @@ export const Webinar = model.define("webinar", {
   tags: model.json().nullable(),
   learning_objectives: model.json().nullable(),
   target_audience: model.text().nullable(),
+  topics_covered: model.json().nullable(),
   cpe_credits: model.number().default(0),
   registration_deadline: model.dateTime().nullable(),
   max_attendees: model.number().nullable(),

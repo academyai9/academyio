@@ -215,6 +215,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   res.json({
     webinar: {
       ...publicWebinar,
+      topics_covered: publicWebinar.topics_covered || publicWebinar.metadata?.topics_covered || [],
       is_upcoming: computed.is_upcoming,
       is_ondemand: computed.is_ondemand,
       is_completed: computed.is_completed,

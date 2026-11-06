@@ -126,6 +126,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     tags: body.tags || [],
     learning_objectives: body.learning_objectives || [],
     target_audience: body.target_audience || null,
+    topics_covered: body.topics_covered || [],
     cpe_credits: body.cpe_credits || 2,
     registration_deadline: body.registration_deadline ? new Date(body.registration_deadline) : null,
     max_attendees: body.max_attendees || null,

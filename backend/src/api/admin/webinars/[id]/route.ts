@@ -68,6 +68,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       tags: existing.tags || [],
       learning_objectives: existing.learning_objectives || [],
       target_audience: existing.target_audience || null,
+      topics_covered: existing.topics_covered || (existing.metadata as any)?.topics_covered || [],
       cpe_credits: existing.cpe_credits || 2,
       max_attendees: existing.max_attendees || null,
       status: "draft",
