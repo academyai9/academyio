@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Modules } from "@medusajs/framework/utils"
+import { Modules, ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import WebinarModuleService from "../../../modules/webinar/service"
 import { WEBINAR_MODULE } from "../../../modules/webinar"
 import { ensureVariantPriceSet } from "../../../modules/webinar/utils/price-sync"
@@ -37,6 +37,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     const startingPrice = prices.length > 0 ? Math.min(...prices) : 149
     return {
       ...w,
+      topics_covered: w.topics_covered || (w.metadata as any)?.topics_covered || [],
       starting_price: startingPrice,
       variants_count: mappings.length,
       variants: mappings,
@@ -72,7 +73,20 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
   const productModule = req.scope.resolve(Modules.PRODUCT)
+  const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
   const body = req.body as Record<string, any>
+
+  // Proactively ensure database columns exist on Neon PostgreSQL
+  try {
+    await pgConnection.raw(`
+      ALTER TABLE IF EXISTS "webinar" ADD COLUMN IF NOT EXISTS "topics_covered" jsonb null;
+      ALTER TABLE IF EXISTS "webinar" ADD COLUMN IF NOT EXISTS "target_audience" text null;
+      ALTER TABLE IF EXISTS "webinar" ADD COLUMN IF NOT EXISTS "learning_objectives" jsonb null;
+      ALTER TABLE IF EXISTS "webinar" ADD COLUMN IF NOT EXISTS "metadata" jsonb null;
+    `)
+  } catch (dbErr) {
+    // Non-fatal
+  }
 
   let speakerName = body.speaker_name
   let speakerBio = body.speaker_bio || null
@@ -105,8 +119,16 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "")
 
+  const topics = Array.isArray(body.topics_covered)
+    ? body.topics_covered.map((t: any) => (typeof t === "string" ? t.trim() : "")).filter((t: string) => t.length > 0)
+    : []
+
+  const objectives = Array.isArray(body.learning_objectives)
+    ? body.learning_objectives.map((o: any) => (typeof o === "string" ? o.trim() : "")).filter((o: string) => o.length > 0)
+    : []
+
   // 1. Create Webinar entity
-  const webinar = await webinarService.createWebinars({
+  const createData: Record<string, any> = {
     title: body.title,
     slug,
     short_description: body.short_description || null,
@@ -124,9 +146,9 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     duration_minutes: body.duration_minutes || 100,
     category: body.category || "Federal Taxation",
     tags: body.tags || [],
-    learning_objectives: body.learning_objectives || [],
+    learning_objectives: objectives,
     target_audience: body.target_audience || null,
-    topics_covered: body.topics_covered || [],
+    topics_covered: topics,
     cpe_credits: body.cpe_credits || 2,
     registration_deadline: body.registration_deadline ? new Date(body.registration_deadline) : null,
     max_attendees: body.max_attendees || null,
@@ -147,7 +169,28 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     recording_published: body.recording_published || false,
     transcript_content: body.transcript_content || null,
     transcript_file_url: body.transcript_file_url || null,
-  })
+    metadata: {
+      ...(body.metadata || {}),
+      topics_covered: topics,
+    },
+  }
+
+  let webinar: any = null
+  try {
+    webinar = await webinarService.createWebinars(createData as any)
+  } catch (err: any) {
+    console.warn("[Webinar Create] Primary create failed, trying fallback without direct topics_covered column:", err?.message)
+    if (createData.topics_covered !== undefined) {
+      const fallbackData = { ...createData }
+      delete fallbackData.topics_covered
+      webinar = await webinarService.createWebinars(fallbackData as any)
+    } else {
+      return res.status(500).json({
+        message: err?.message || "Failed to create webinar",
+        detail: err?.detail || null,
+      })
+    }
+  }
 
   // 2. Automatically create linked Medusa Product with 4 standard variants or custom options
   try {

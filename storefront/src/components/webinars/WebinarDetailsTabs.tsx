@@ -40,6 +40,27 @@ export default function WebinarDetailsTabs({
 
   const cpeCredits = creditInfo?.cpe_credit ?? webinar.cpe_credits ?? null
 
+  const validObjectives: string[] = (
+    Array.isArray(webinar.learning_objectives)
+      ? webinar.learning_objectives
+      : typeof webinar.learning_objectives === "string"
+      ? [webinar.learning_objectives]
+      : []
+  )
+    .map((o: any) => (typeof o === "string" ? o.trim() : ""))
+    .filter((o: string) => o.length > 0)
+
+  const rawTopics = webinar.topics_covered || webinar.metadata?.topics_covered || []
+  const validTopics: string[] = (
+    Array.isArray(rawTopics)
+      ? rawTopics
+      : typeof rawTopics === "string"
+      ? [rawTopics]
+      : []
+  )
+    .map((t: any) => (typeof t === "string" ? t.trim() : ""))
+    .filter((t: string) => t.length > 0)
+
   const handleTabChange = (tabId: WebinarTabType) => {
     setActiveTab(tabId)
     if (typeof window !== "undefined") {
@@ -179,7 +200,7 @@ export default function WebinarDetailsTabs({
             </div>
 
             {/* Key Learning Objectives */}
-            {webinar.learning_objectives && webinar.learning_objectives.length > 0 && (
+            {validObjectives.length > 0 && (
               <div
                 id="objectives"
                 className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-xs space-y-4"
@@ -200,12 +221,12 @@ export default function WebinarDetailsTabs({
                   </div>
 
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800">
-                    {webinar.learning_objectives.length} Key Takeaways
+                    {validObjectives.length} Key Takeaways
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 pt-1">
-                  {webinar.learning_objectives.map((obj: string, i: number) => (
+                  {validObjectives.map((obj: string, i: number) => (
                     <div
                       key={i}
                       className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-slate-50/70 dark:bg-slate-850/50 border border-slate-200/60 dark:border-slate-800/80 transition-colors hover:border-blue-200 dark:hover:border-blue-800/60"
@@ -223,7 +244,7 @@ export default function WebinarDetailsTabs({
             )}
 
             {/* Topics Covered */}
-            {webinar.topics_covered && Array.isArray(webinar.topics_covered) && webinar.topics_covered.length > 0 && (
+            {validTopics.length > 0 && (
               <div
                 id="topics-covered"
                 className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-xs space-y-4"
@@ -244,12 +265,12 @@ export default function WebinarDetailsTabs({
                   </div>
 
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
-                    {webinar.topics_covered.length} Topics
+                    {validTopics.length} Topics
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {webinar.topics_covered.map((topic: string, i: number) => (
+                  {validTopics.map((topic: string, i: number) => (
                     <div
                       key={i}
                       className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-slate-50/70 dark:bg-slate-850/50 border border-slate-200/60 dark:border-slate-800/80 transition-colors hover:border-blue-200 dark:hover:border-blue-800/60"

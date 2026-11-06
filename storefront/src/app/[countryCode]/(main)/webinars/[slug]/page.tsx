@@ -150,7 +150,10 @@ export default async function WebinarDetailsPage(props: {
         minPrice={minPrice}
         currency={currency}
         isSubscriptionIncluded={isSubscriptionIncluded}
-        hasObjectives={Boolean(webinar.learning_objectives && webinar.learning_objectives.length > 0)}
+        hasObjectives={Boolean(
+          Array.isArray(webinar.learning_objectives) &&
+          webinar.learning_objectives.some((o: any) => typeof o === "string" && o.trim().length > 0)
+        )}
         hasCredits={Boolean(webinar.cpe_credits || webinar.credit_info)}
       />
 

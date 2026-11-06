@@ -439,15 +439,25 @@ export default function WebinarsAdminPage() {
     const objectives = (webinarForm.learning_objectives_text || "")
       .split("\n")
       .map((s) => s.trim())
-      .filter(Boolean)
+      .filter((s) => s.length > 0)
 
     const topics = (webinarForm.topics_covered_text || "")
       .split("\n")
       .map((s) => s.trim())
-      .filter(Boolean)
+      .filter((s) => s.length > 0)
+
+    const {
+      learning_objectives_text,
+      topics_covered_text,
+      price_live,
+      price_recording,
+      price_transcript,
+      price_bundle,
+      ...baseWebinarData
+    } = webinarForm
 
     const payload = {
-      ...webinarForm,
+      ...baseWebinarData,
       learning_objectives: objectives,
       topics_covered: topics,
       target_audience: webinarForm.target_audience ? webinarForm.target_audience.trim() : null,
@@ -473,15 +483,19 @@ export default function WebinarsAdminPage() {
       })
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Failed to save webinar")
+        let errorMsg = "Failed to save webinar"
+        try {
+          const err = await res.json()
+          errorMsg = err.message || err.detail || errorMsg
+        } catch (_) {}
+        throw new Error(errorMsg)
       }
 
       notify("success", editingWebinar ? "Webinar updated successfully." : "Webinar created successfully.")
       setIsCreateModalOpen(false)
       fetchWebinars()
     } catch (err: any) {
-      notify("error", err.message)
+      notify("error", err.message || "Failed to save webinar")
     }
   }
 
