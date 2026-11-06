@@ -179,6 +179,8 @@ export default function WebinarsAdminPage() {
     cpe_credits: 2,
     short_description: "",
     description: "",
+    target_audience: "",
+    learning_objectives_text: "",
     featured_image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
     status: "published",
     seo_title: "",
@@ -368,6 +370,8 @@ export default function WebinarsAdminPage() {
       cpe_credits: 2,
       short_description: "",
       description: "",
+      target_audience: "",
+      learning_objectives_text: "",
       featured_image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
       status: "published",
       seo_title: "",
@@ -397,6 +401,12 @@ export default function WebinarsAdminPage() {
       cpe_credits: w.cpe_credits || 0,
       short_description: w.short_description || "",
       description: w.description || "",
+      target_audience: w.target_audience || "",
+      learning_objectives_text: Array.isArray(w.learning_objectives)
+        ? w.learning_objectives.join("\n")
+        : typeof w.learning_objectives === "string"
+        ? w.learning_objectives
+        : "",
       featured_image: w.featured_image || "",
       status: w.status,
       seo_title: w.seo_title || "",
@@ -417,8 +427,15 @@ export default function WebinarsAdminPage() {
       return
     }
 
+    const objectives = (webinarForm.learning_objectives_text || "")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+
     const payload = {
       ...webinarForm,
+      learning_objectives: objectives,
+      target_audience: webinarForm.target_audience ? webinarForm.target_audience.trim() : null,
       prices: {
         live: webinarForm.price_live,
         recording: webinarForm.price_recording,
@@ -1254,6 +1271,12 @@ export default function WebinarsAdminPage() {
                   <span>Category: <strong className="text-neutral-800 dark:text-neutral-200">{selectedWebinar.category}</strong></span>
                   <span>•</span>
                   <span className="font-mono text-neutral-400 dark:text-neutral-500">/{selectedWebinar.slug}</span>
+                  {selectedWebinar.learning_objectives && Array.isArray(selectedWebinar.learning_objectives) && selectedWebinar.learning_objectives.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>Objectives: <strong className="text-emerald-600 dark:text-emerald-400">{selectedWebinar.learning_objectives.length} Defined</strong></span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2119,6 +2142,37 @@ export default function WebinarsAdminPage() {
                   value={webinarForm.description}
                   onChange={(e) => setWebinarForm({ ...webinarForm, description: e.target.value })}
                   className="w-full p-2.5 border rounded-xl font-normal text-xs bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-neutral-700 dark:text-neutral-300 uppercase mb-1">
+                  Target Audience & Qualifications
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. CPAs, Enrolled Agents (EAs), Tax Attorneys, Controllers, Financial Officers, and Corporate Tax Preparers."
+                  value={webinarForm.target_audience}
+                  onChange={(e) => setWebinarForm({ ...webinarForm, target_audience: e.target.value })}
+                  className="w-full p-2.5 border rounded-xl font-normal text-xs bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-neutral-700 dark:text-neutral-300 uppercase">
+                    Key Learning Objectives (One per line)
+                  </label>
+                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                    Each line becomes a distinct objective bullet on the webinar page
+                  </span>
+                </div>
+                <textarea
+                  rows={4}
+                  placeholder={"Identify critical reporting changes under newly revised IRS guidelines\nCalculate accurate partner tax basis capital accounts\nAnalyze Section 704(b) substantial economic effect rules"}
+                  value={webinarForm.learning_objectives_text}
+                  onChange={(e) => setWebinarForm({ ...webinarForm, learning_objectives_text: e.target.value })}
+                  className="w-full p-2.5 border rounded-xl font-normal text-xs bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
                 />
               </div>
 
