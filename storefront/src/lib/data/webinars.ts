@@ -282,12 +282,40 @@ export async function getCustomerSubscription(token: string): Promise<{
   }
 }
 
+export async function createSubscriptionPaymentIntent(token: string, planId: string) {
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+    }
+    if (token && token.trim().length > 0) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/subscriptions/payment-intent`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ plan_id: planId }),
+      cache: "no-store",
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return { error: data.message || "Failed to initialize payment." }
+    }
+    return data
+  } catch {
+    return { error: "Network error while initializing payment." }
+  }
+}
+
 export async function subscribeToPlan(
   token: string,
   planId: string,
   paymentMethod?: string,
   paymentProviderId?: string,
   extraData?: {
+    paymentIntentId?: string | null
     customerEmail?: string
     customerId?: string
     cardBrand?: string
@@ -311,10 +339,9 @@ export async function subscribeToPlan(
       headers,
       body: JSON.stringify({
         plan_id: planId,
-        payment_method: paymentMethod || "Visa ending in 4242",
+        payment_intent_id: extraData?.paymentIntentId || undefined,
+        payment_method: paymentMethod || "Stripe Card",
         payment_provider_id: paymentProviderId || "stripe",
-        customer_email: extraData?.customerEmail,
-        customer_id: extraData?.customerId,
         card_brand: extraData?.cardBrand,
         last4: extraData?.last4,
         cardholder_name: extraData?.cardholderName,

@@ -6,10 +6,8 @@ This manual details administration procedures for managing webinars, speakers, p
 
 ## 1. Accessing the Admin Interface
 
-- **Admin URL**: `http://localhost:9000/app`
-- **Default Super Admin Credentials**:
-  - **Email**: `admin@academyio.com`
-  - **Password**: `SuperAdmin2026!`
+- **Admin URL**: `https://<your-backend-domain>/webapp` (or `http://localhost:9000/webapp` in local development)
+- **Authentication**: Sign in using the administrator account provisioned via the Medusa CLI (`medusa user -e <email> -p "<strong-password>"`). Never use default or shared credentials in production.
 
 The Medusa Admin dashboard provides comprehensive visibility into products, orders, customers, pricing, sales channels, and API keys.
 

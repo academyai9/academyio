@@ -23,7 +23,9 @@ import {
   LogIn,
   UserPlus,
 } from "lucide-react"
-import { SubscriptionPlan, subscribeToPlan } from "@lib/data/webinars"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import { SubscriptionPlan, subscribeToPlan, createSubscriptionPaymentIntent } from "@lib/data/webinars"
 import { login, signup } from "@lib/data/customer"
 
 interface SubscriptionCheckoutViewProps {
@@ -71,7 +73,7 @@ function detectCardBrand(num: string): { brand: string; label: string; color: st
   return { brand: "generic", label: "Card", color: "from-slate-900 via-indigo-950 to-slate-900" }
 }
 
-export default function SubscriptionCheckoutView({
+function SubscriptionCheckoutInner({
   plan,
   plans,
   customer,
@@ -80,6 +82,8 @@ export default function SubscriptionCheckoutView({
   activePaymentMethods,
 }: SubscriptionCheckoutViewProps) {
   const router = useRouter()
+  const stripe = useStripe()
+  const elements = useElements()
 
   const hasActiveList = Boolean(activePaymentMethods && activePaymentMethods.length > 0)
   const isAllDisabled = activePaymentMethods !== undefined && activePaymentMethods.length === 0
@@ -112,20 +116,21 @@ export default function SubscriptionCheckoutView({
     }
   }, [defaultProvider, selectedProvider])
 
-  // Card Form State
-  const [cardNumber, setCardNumber] = useState("4242 4242 4242 4242")
-  const [cardExpiry, setCardExpiry] = useState("12/28")
-  const [cardCvc, setCardCvc] = useState("123")
+  // Card Form State (PCI-compliant: card details collected inside Stripe CardElement iframe, never pre-filled)
+  const [cardNumber, setCardNumber] = useState("")
+  const [cardExpiry, setCardExpiry] = useState("")
+  const [cardCvc, setCardCvc] = useState("")
+  const [cardComplete, setCardComplete] = useState(false)
   const [cardholderName, setCardholderName] = useState(
     customer
-      ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "John Doe"
-      : "John Doe"
+      ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim()
+      : ""
   )
-  const [postalCode, setPostalCode] = useState("10001")
+  const [postalCode, setPostalCode] = useState("")
   const [agreeTerms, setAgreeTerms] = useState(true)
 
   // PayPal Form State
-  const [paypalEmail, setPaypalEmail] = useState(customer?.email || "customer@academyio.com")
+  const [paypalEmail, setPaypalEmail] = useState(customer?.email || "")
 
   // Customer Auth / Registration State (if not logged in)
   const [authTab, setAuthTab] = useState<"login" | "register">("login")
@@ -268,79 +273,83 @@ export default function SubscriptionCheckoutView({
     return true
   }
 
-  // Handle Main Subscription Activation
+  // Handle Main Subscription Activation with real Stripe PaymentIntent verification
   const handleActivateSubscription = async () => {
     setCheckoutError(null)
-    if (!validateForm()) return
-
-    // If Electronic Card: Launch Instant Verification Modal Simulation
-    if (selectedProvider === "electronic_card") {
-      setIsVerifying(true)
-      setVerificationStep(1)
-      setVerificationProgress(25)
-
-      // Step 1: Luhn & BIN Check (0.5s)
-      await new Promise((r) => setTimeout(r, 600))
-      setVerificationStep(2)
-      setVerificationProgress(50)
-
-      // Step 2: 3D-Secure 2.0 Strong Customer Authentication (0.7s)
-      await new Promise((r) => setTimeout(r, 700))
-      setVerificationStep(3)
-      setVerificationProgress(75)
-
-      // Step 3: Real-Time Account & Funds Verification (0.6s)
-      await new Promise((r) => setTimeout(r, 600))
-      setVerificationStep(4)
-      setVerificationProgress(100)
-
-      // Step 4: Finalize subscription on backend
-      await new Promise((r) => setTimeout(r, 400))
+    if (!customer || !authToken) {
+      setCheckoutError("Please sign in or create an account above before completing your subscription.")
+      return
+    }
+    if (!agreeTerms) {
+      setCheckoutError("Please agree to the recurring billing terms and cancellation policy to continue.")
+      return
+    }
+    if (!cardholderName.trim()) {
+      setCheckoutError("Please enter the cardholder's full name.")
+      return
     }
 
     setSubmitting(true)
 
     try {
-      const cleanCard = cardNumber.replace(/\s/g, "")
-      const last4 = cleanCard.slice(-4) || "4242"
-      const customerEmail = customer?.email || loginEmail || registerEmail || "customer@academyio.com"
-
-      let paymentSummary = ""
-      if (selectedProvider === "paypal") {
-        paymentSummary = `PayPal Express (${paypalEmail || customerEmail})`
-      } else if (selectedProvider === "electronic_card") {
-        paymentSummary = `Electronic Card [Instant Verified] (${cardBrandInfo.label} •••• ${last4})`
-      } else {
-        paymentSummary = `Stripe (${cardBrandInfo.label} •••• ${last4})`
+      // 1. Create server-authoritative Stripe PaymentIntent for this plan
+      const intentRes = await createSubscriptionPaymentIntent(authToken, selectedPlan.id)
+      if (intentRes?.error) {
+        setCheckoutError(intentRes.error)
+        return
       }
 
+      let confirmedIntentId: string | null = intentRes?.payment_intent_id || null
+
+      // 2. For paid plans, confirm payment securely via Stripe Elements (never handle raw card numbers)
+      if (!intentRes?.free_plan) {
+        if (!stripe || !elements) {
+          setCheckoutError("Stripe payment form is still loading. Please wait a moment and try again.")
+          return
+        }
+        const cardElement = elements.getElement(CardElement)
+        if (!cardElement) {
+          setCheckoutError("Please enter your card details in the secure Stripe card field.")
+          return
+        }
+
+        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+          intentRes.client_secret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: cardholderName.trim(),
+                email: customer.email,
+                address: postalCode ? { postal_code: postalCode.trim() } : undefined,
+              },
+            },
+          }
+        )
+
+        if (stripeError) {
+          setCheckoutError(stripeError.message || "Your card could not be authorized. Please try another card.")
+          return
+        }
+
+        if (!paymentIntent || paymentIntent.status !== "succeeded") {
+          setCheckoutError("Payment was not completed. Please try again.")
+          return
+        }
+
+        confirmedIntentId = paymentIntent.id
+      }
+
+      // 3. Finalize subscription on backend with verified payment_intent_id
+      const paymentSummary = `Stripe Verified Card (${cardholderName.trim()})`
       const res = await subscribeToPlan(
         authToken,
         selectedPlan.id,
         paymentSummary,
-        selectedProvider,
+        "stripe",
         {
-          customerEmail,
-          customerId: customer?.id,
-          cardBrand: cardBrandInfo.brand,
-          last4,
-          cardholderName,
-          verificationMode:
-            selectedProvider === "electronic_card"
-              ? "instant_verification"
-              : selectedProvider === "paypal"
-              ? "oauth2_instant_approval"
-              : "instant_3ds_verification",
-          metadata: {
-            gateway: selectedProvider,
-            environment:
-              selectedProvider === "paypal"
-                ? paypalConfig?.environment || "sandbox"
-                : stripeConfig?.environment || "live",
-            billing_interval: selectedPlan.billing_interval || "monthly",
-            postal_code: postalCode,
-            verified_at: new Date().toISOString(),
-          },
+          paymentIntentId: confirmedIntentId,
+          cardholderName: cardholderName.trim(),
         }
       )
 
@@ -721,66 +730,22 @@ export default function SubscriptionCheckoutView({
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">
-                        Card Number
-                      </label>
-                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
-                        {cardBrandInfo.label}
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <CreditCard className="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={cardNumber}
-                        onChange={handleCardNumberChange}
-                        placeholder="4242 4242 4242 4242"
-                        className="w-full pl-10 pr-3.5 py-2.5 text-xs border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder:text-gray-400 font-mono tracking-wider"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-1">
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={cardExpiry}
-                        onChange={handleCardExpiryChange}
-                        placeholder="MM/YY"
-                        className="w-full px-3.5 py-2.5 text-xs border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder:text-gray-400 font-mono text-center"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
-                        CVV / CVC
-                      </label>
-                      <input
-                        type="password"
-                        maxLength={4}
-                        required
-                        value={cardCvc}
-                        onChange={handleCardCvcChange}
-                        placeholder="123"
-                        className="w-full px-3.5 py-2.5 text-xs border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder:text-gray-400 font-mono text-center"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1">
-                        ZIP / Postal
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
-                        placeholder="10001"
-                        className="w-full px-3.5 py-2.5 text-xs border border-gray-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder:text-gray-400 font-mono text-center"
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200 mb-1.5">
+                      Card Details (Secured by Stripe)
+                    </label>
+                    <div className="px-3.5 py-3 border border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900">
+                      <CardElement
+                        onChange={(e) => setCardComplete(e.complete)}
+                        options={{
+                          style: {
+                            base: {
+                              fontSize: "14px",
+                              color: "#0f172a",
+                              "::placeholder": { color: "#94a3b8" },
+                            },
+                            invalid: { color: "#dc2626" },
+                          },
+                        }}
                       />
                     </div>
                   </div>
@@ -1278,5 +1243,19 @@ export default function SubscriptionCheckoutView({
         </div>
       )}
     </div>
+  )
+}
+
+export default function SubscriptionCheckoutView(props: SubscriptionCheckoutViewProps) {
+  const stripeKey =
+    process.env.NEXT_PUBLIC_STRIPE_KEY ||
+    props.activePaymentMethods?.find((m: any) => m.provider_id === "stripe")?.publishable_key ||
+    ""
+  const stripePromise = useMemo(() => (stripeKey ? loadStripe(stripeKey) : null), [stripeKey])
+
+  return (
+    <Elements stripe={stripePromise}>
+      <SubscriptionCheckoutInner {...props} />
+    </Elements>
   )
 }

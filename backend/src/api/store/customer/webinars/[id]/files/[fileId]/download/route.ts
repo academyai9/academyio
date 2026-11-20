@@ -6,7 +6,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
     const { id: webinarId, fileId } = req.params
-    const customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string) || (req.body as any)?.customer_id
+    const customerId = (req as any).auth_context?.actor_id
 
     if (!customerId) {
       return res.status(401).json({ message: "Authentication required to download webinar materials." })
@@ -16,7 +16,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const fileRes = await pgConnection.raw(
       `
       SELECT * FROM webinar_file
-      WHERE id = $1 AND webinar_id = $2 AND is_active = true AND deleted_at IS NULL
+      WHERE id = ? AND webinar_id = ? AND is_active = true AND deleted_at IS NULL
     `,
       [fileId, webinarId]
     )
@@ -32,7 +32,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       `
       SELECT id, access_type, status, expires_at
       FROM customer_entitlement
-      WHERE customer_id = $1 AND webinar_id = $2 AND status = 'active' AND deleted_at IS NULL
+      WHERE customer_id = ? AND webinar_id = ? AND status = 'active' AND deleted_at IS NULL
     `,
       [customerId, webinarId]
     )
@@ -40,7 +40,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const subRes = await pgConnection.raw(
       `
       SELECT id, status FROM customer_subscription
-      WHERE customer_id = $1 AND status = 'active' AND deleted_at IS NULL
+      WHERE customer_id = ? AND status = 'active' AND deleted_at IS NULL
+        AND (current_period_end IS NULL OR current_period_end > NOW())
     `,
       [customerId]
     )
@@ -50,14 +51,14 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       SELECT o.id, o.status, oli.variant_id, wvm.option_type
       FROM "order" o
       JOIN order_line_item oli ON oli.order_id = o.id
-      JOIN webinar w ON w.id = $2
+      JOIN webinar w ON w.id = ?
       LEFT JOIN webinar_variant_mapping wvm ON wvm.variant_id = oli.variant_id
-      WHERE o.customer_id = $1
-        AND (oli.product_id = w.product_id OR oli.metadata->>'webinar_id' = $2)
+      WHERE o.customer_id = ?
+        AND oli.product_id = w.product_id
         AND o.deleted_at IS NULL
         AND o.status NOT IN ('canceled', 'archived')
     `,
-      [customerId, webinarId]
+      [webinarId, customerId]
     )
 
     const hasActiveSubscription = subRes.rows && subRes.rows.length > 0

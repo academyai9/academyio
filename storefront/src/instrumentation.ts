@@ -23,8 +23,9 @@ export async function register() {
           timeoutMs
         )
 
+        let promiseTimeoutId: ReturnType<typeof setTimeout> | undefined
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
+          promiseTimeoutId = setTimeout(
             () => reject(new Error("Global fetch promise timeout (8.5s)")),
             timeoutMs + 500
           )
@@ -37,6 +38,7 @@ export async function register() {
           ])
         } finally {
           clearTimeout(timeoutId)
+          if (promiseTimeoutId) clearTimeout(promiseTimeoutId)
         }
       }
     }

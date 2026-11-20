@@ -1,9 +1,14 @@
+import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { retrieveCustomer } from "@lib/data/customer"
+import { BACKEND_URL, PUBLISHABLE_KEY } from "@lib/config-env"
 import ParticipantQuizView from "@components/quiz/ParticipantQuizView"
 
-const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
+export const metadata: Metadata = {
+  title: "CPE Comprehension Quiz | AcademyIO",
+  robots: { index: false, follow: false },
+}
 
 export default async function WebinarQuizPage(props: {
   params: Promise<{ countryCode: string; webinarId: string }>
@@ -13,20 +18,18 @@ export default async function WebinarQuizPage(props: {
   const cookieStore = await cookies()
   const token = cookieStore.get("_medusa_jwt")?.value
   const customer = await retrieveCustomer()
-  if (!customer) {
-    redirect(`/${countryCode}/login?redirect=/${countryCode}/dashboard/quiz/${webinarId}`)
+  if (!customer || !token) {
+    redirect(`/${countryCode}/login?redirect=/${countryCode}/dashboard/quiz/${encodeURIComponent(webinarId)}`)
   }
 
   try {
     const headers: Record<string, string> = {
-      "x-publishable-api-key": process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978",
-    }
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+      Authorization: `Bearer ${token}`,
     }
 
     const res = await fetch(
-      `${BACKEND_URL}/store/customer/webinars/${webinarId}/quiz?customer_id=${customer.id}`,
+      `${BACKEND_URL}/store/customer/webinars/${encodeURIComponent(webinarId)}/quiz`,
       { headers, cache: "no-store" }
     )
 

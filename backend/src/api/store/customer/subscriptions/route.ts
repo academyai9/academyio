@@ -5,47 +5,16 @@ import { WEBINAR_MODULE } from "../../../../modules/webinar"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
-  let customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string)
-  const customerEmail = req.query.customer_email as string
+  const customerId = (req as any).auth_context?.actor_id
 
-  // If customerId is not found, try to resolve by customerEmail
-  if (!customerId && customerEmail) {
-    try {
-      const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
-      const custRes = await pgConnection.raw(
-        `SELECT id FROM customer WHERE email = ? LIMIT 1;`,
-        [customerEmail]
-      )
-      if (custRes.rows?.[0]) {
-        customerId = custRes.rows[0].id
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  if (!customerId && !customerEmail) {
+  if (!customerId) {
     return res.status(401).json({ message: "Authentication required" })
   }
 
-  // Find most recent subscription for this customer
-  const filters: Record<string, any> = {}
-  if (customerId) {
-    filters.customer_id = customerId
-  }
-
-  let subs = await webinarService.listCustomerSubscriptions(
-    filters,
+  const subs = await webinarService.listCustomerSubscriptions(
+    { customer_id: customerId },
     { order: { current_period_end: "DESC" } }
   )
-
-  // If not found by customer_id and customerEmail was provided, try by email
-  if ((!subs || subs.length === 0) && customerEmail) {
-    subs = await webinarService.listCustomerSubscriptions(
-      { customer_email: customerEmail },
-      { order: { current_period_end: "DESC" } }
-    )
-  }
 
   if (!subs || subs.length === 0) {
     return res.json({
@@ -87,52 +56,31 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
   const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
-  const body = req.body as Record<string, any>
+  const body = (req.body as Record<string, any>) || {}
 
-  let customerId = (req as any).auth_context?.actor_id || body.customer_id
-  let customerEmail = body.customer_email
-
-  // Resolve customer details from DB if customerId exists
-  if (customerId) {
-    try {
-      const custRes = await pgConnection.raw(
-        `SELECT id, email, first_name, last_name FROM customer WHERE id = ? LIMIT 1;`,
-        [customerId]
-      )
-      if (custRes.rows?.[0]) {
-        if (!customerEmail) {
-          customerEmail = custRes.rows[0].email
-        }
-      }
-    } catch (e) {
-      console.warn("Could not lookup customer by id:", e)
-    }
-  } else if (customerEmail) {
-    try {
-      const custRes = await pgConnection.raw(
-        `SELECT id, email, first_name, last_name FROM customer WHERE email = ? LIMIT 1;`,
-        [customerEmail]
-      )
-      if (custRes.rows?.[0]) {
-        customerId = custRes.rows[0].id
-      } else {
-        customerId = `cus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`
-      }
-    } catch (e) {
-      customerId = `cus_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`
-    }
-  }
-
-  if (!customerId && !customerEmail) {
+  // Strictly require verified authenticated customer — never trust body.customer_id or body.customer_email
+  const customerId = (req as any).auth_context?.actor_id
+  if (!customerId) {
     return res.status(401).json({ message: "Authentication required to subscribe" })
   }
 
+  let customerEmail: string | null = null
+  try {
+    const custRes = await pgConnection.raw(
+      `SELECT id, email FROM customer WHERE id = ? AND deleted_at IS NULL LIMIT 1;`,
+      [customerId]
+    )
+    customerEmail = custRes.rows?.[0]?.email || null
+  } catch (e) {
+    console.warn("Could not lookup authenticated customer:", e)
+  }
+
   if (!customerEmail) {
-    customerEmail = "customer@academyio.com"
+    return res.status(401).json({ message: "Authenticated customer account not found" })
   }
 
   const planId = body.plan_id
-  if (!planId) {
+  if (!planId || typeof planId !== "string") {
     return res.status(400).json({ message: "plan_id is required" })
   }
 
@@ -143,6 +91,69 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
   if (plan.status !== "active") {
     return res.status(400).json({ message: "Selected plan is not currently available" })
+  }
+
+  // Server-side Payment Verification for all paid plans (NEVER grant free subscription on client assertion)
+  const planPrice = Number((plan as any).price || 0)
+  const paymentIntentId = typeof body.payment_intent_id === "string" ? body.payment_intent_id.trim() : ""
+  let verifiedPaymentRef: string | null = null
+
+  if (planPrice > 0) {
+    if (!paymentIntentId || !paymentIntentId.startsWith("pi_")) {
+      return res.status(402).json({
+        message: "Verified Stripe payment_intent_id is required to activate a paid subscription.",
+      })
+    }
+
+    const stripeSecret = process.env.STRIPE_API_KEY?.trim()
+    if (!stripeSecret) {
+      return res.status(503).json({
+        message: "Payment verification gateway is not configured.",
+      })
+    }
+
+    // Prevent replay of a previously used PaymentIntent
+    const existingByPi = await pgConnection
+      .raw(
+        `SELECT id FROM customer_subscription WHERE metadata->>'payment_intent_id' = ? LIMIT 1;`,
+        [paymentIntentId]
+      )
+      .catch(() => ({ rows: [] }))
+    if (existingByPi.rows && existingByPi.rows.length > 0) {
+      return res.status(409).json({
+        message: "This payment has already been applied to a subscription.",
+      })
+    }
+
+    try {
+      const piRes = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${stripeSecret}`,
+          },
+        }
+      )
+      if (!piRes.ok) {
+        return res.status(402).json({
+          message: "Unable to verify payment with Stripe. Subscription was not activated.",
+        })
+      }
+      const piData: any = await piRes.json()
+      const expectedCents = Math.round(planPrice * 100)
+      if (piData.status !== "succeeded" || Number(piData.amount_received || 0) < expectedCents) {
+        return res.status(402).json({
+          message: "Payment has not succeeded or amount does not match the selected plan.",
+        })
+      }
+      verifiedPaymentRef = piData.id
+    } catch (stripeErr: any) {
+      console.error("[Subscription Payment Verification Error]:", stripeErr?.message || stripeErr)
+      return res.status(502).json({
+        message: "Payment verification service temporarily unavailable.",
+      })
+    }
   }
 
   // Cancel any existing active subscription for this customer
@@ -171,27 +182,15 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   }
 
   const paymentProvider = body.payment_provider_id || "stripe"
-  let paymentMethod = body.payment_method
-  if (!paymentMethod) {
-    if (paymentProvider === "paypal") {
-      paymentMethod = `PayPal Express (${customerEmail})`
-    } else if (paymentProvider === "electronic_card") {
-      paymentMethod = `Electronic Card [Instant Verified] (${body.card_brand || "Visa"} ending in ${body.last4 || "4242"})`
-    } else {
-      paymentMethod = `Stripe (${body.card_brand || "Visa"} ending in ${body.last4 || "4242"})`
-    }
-  }
+  const paymentMethod =
+    body.payment_method ||
+    `Stripe (${body.card_brand || "Card"}${body.last4 ? ` ending in ${String(body.last4).slice(-4)}` : ""})`
 
   const metadata = {
     gateway: paymentProvider,
-    verification_status: "verified",
-    verification_mode: body.verification_mode || (paymentProvider === "electronic_card" ? "instant_verification" : "standard"),
-    card_brand: body.card_brand || null,
-    last4: body.last4 || null,
-    cardholder_name: body.cardholder_name || null,
-    auth_code: `AUTH_${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+    verification_status: "stripe_verified",
+    payment_intent_id: verifiedPaymentRef,
     verified_at: new Date().toISOString(),
-    ...(body.metadata || {}),
   }
 
   const newSub = await webinarService.createCustomerSubscriptions({

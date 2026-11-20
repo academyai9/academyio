@@ -1,8 +1,9 @@
 const { Client } = require("pg");
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_eVfLTi3pF5CE@ep-calm-meadow-b4nc559a-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required.");
+}
 
 async function purgePdfOptionAndCleanVariants() {
   const client = new Client({

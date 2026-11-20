@@ -71,12 +71,13 @@ export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendT
     return () => window.removeEventListener("academyio_consent_updated", handleConsent)
   }, [])
 
-  // Client-side fetch to ensure instant reactivity if admin modifies tracking codes
+  // Client-side fetch only if SSR did not provide initial tracking codes
   useEffect(() => {
+    if (trackingCodes && trackingCodes.length > 0) return
+
     const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
-    const publishableKey =
-      process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
-      "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
+    const publishableKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+    if (!publishableKey) return
 
     fetch(`${backendUrl}/store/tracking-codes`, {
       headers: {
@@ -93,47 +94,43 @@ export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendT
       .catch(() => {
         // Fail safely and keep initial codes
       })
-  }, [])
+  }, [trackingCodes])
 
-  // 1. Mandatory Security Boundary: Block if route is administrative
-  if (
+  const isAdminOrApiRoute =
     !pathname ||
     pathname.startsWith("/webapp") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/app") ||
     pathname.startsWith("/api")
-  ) {
-    return null
-  }
 
-  // Filter only enabled codes and respect cookie consent
-  const enabledCodes = codes.filter((c) => {
-    if (!c.is_enabled) return false
+  // Filter only enabled codes and enforce strict cookie consent (GDPR: opt-in required before firing trackers)
+  const enabledCodes = isAdminOrApiRoute
+    ? []
+    : codes.filter((c) => {
+        if (!c.is_enabled) return false
 
-    // Search console & Bing verification tags are essential for search indexing
-    if (c.type === "gsc" || c.type === "bing") return true
+        // Search console & Bing verification meta tags are non-tracking site ownership tags
+        if (c.type === "gsc" || c.type === "bing") return true
 
-    // Check user cookie preferences if user has expressed consent choices
-    if (consent) {
-      if ((c.type === "ga4" || c.type === "gtm" || c.type === "clarity") && !consent.analytics) {
-        return false
-      }
-      if ((c.type === "meta_pixel" || c.type === "linkedin") && !consent.marketing) {
-        return false
-      }
-    }
+        // Require explicit consent before firing analytics/marketing trackers
+        if (!consent) return false
 
-    return true
-  })
-  if (enabledCodes.length === 0) return null
+        if ((c.type === "ga4" || c.type === "gtm" || c.type === "clarity") && !consent.analytics) {
+          return false
+        }
+        if ((c.type === "meta_pixel" || c.type === "linkedin") && !consent.marketing) {
+          return false
+        }
 
-  // 2. Client-side Route Transition Listener (avoid duplicate scripts, dispatch single page_view event)
+        return true
+      })
+
+  // 2. Client-side Route Transition Listener (always declared before early returns to satisfy Rules of Hooks)
   useEffect(() => {
-    if (!pathname) return
+    if (isAdminOrApiRoute || enabledCodes.length === 0 || !pathname) return
     if (lastPathname.current === pathname) return
     lastPathname.current = pathname
 
-    // Notify active trackers on route transition
     enabledCodes.forEach((code) => {
       if (!isCodeEligibleForPath(code, pathname)) return
 
@@ -161,10 +158,12 @@ export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendT
         console.warn("[Analytics] Error recording route transition:", err)
       }
     })
-  }, [pathname, enabledCodes])
+  }, [pathname, enabledCodes, isAdminOrApiRoute])
 
   // 3. Inject Verification Meta Tags (Google Search Console & Bing Webmaster)
   useEffect(() => {
+    if (isAdminOrApiRoute || enabledCodes.length === 0 || !pathname) return
+
     const metaCodes = enabledCodes.filter(
       (c) => (c.type === "gsc" || c.type === "bing") && c.tracking_id
     )
@@ -182,7 +181,11 @@ export default function FrontendTrackingLoader({ trackingCodes = [] }: FrontendT
         document.head.appendChild(meta)
       }
     })
-  }, [enabledCodes, pathname])
+  }, [enabledCodes, pathname, isAdminOrApiRoute])
+
+  if (isAdminOrApiRoute || enabledCodes.length === 0) {
+    return null
+  }
 
   return (
     <>

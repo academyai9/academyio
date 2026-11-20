@@ -4,7 +4,7 @@ import { WEBINAR_MODULE } from "../../../../../../modules/webinar"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const webinarService: WebinarModuleService = req.scope.resolve(WEBINAR_MODULE)
-  const customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string)
+  const customerId = (req as any).auth_context?.actor_id
   const { id: webinarId } = req.params
 
   if (!customerId) {

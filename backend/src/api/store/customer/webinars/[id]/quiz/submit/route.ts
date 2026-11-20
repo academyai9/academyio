@@ -1,13 +1,9 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Pool } from "pg"
 import { getWebinarEndTimestamp } from "../../../../../../../modules/webinar/utils/webinar-status"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
+import { getSharedPool } from "../../../../../../../utils/db-pool"
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
-  const customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string) || (req.body as any)?.customer_id
+  const customerId = (req as any).auth_context?.actor_id
   const { id: webinarId } = req.params
   const { answers } = req.body as { answers?: Record<string, string> }
 
@@ -19,9 +15,12 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     return res.status(400).json({ message: "Invalid submission: answers object is required" })
   }
 
+  const pool = getSharedPool()
   const client = await pool.connect()
   try {
     await client.query("BEGIN")
+    // Serialize concurrent quiz submissions for the same (customer, webinar) to prevent cooldown bypass & duplicate certificates
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1 || ':' || $2))`, [customerId, webinarId])
 
     // 1. Fetch Webinar
     const webRes = await client.query(

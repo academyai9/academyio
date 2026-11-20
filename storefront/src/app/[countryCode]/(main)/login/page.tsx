@@ -1,7 +1,14 @@
 import React, { Suspense } from "react"
+import { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { retrieveCustomer } from "@lib/data/customer"
+import { sanitizeRedirectPath } from "@lib/util/safe-redirect"
 import UnifiedAuthView from "@components/auth/UnifiedAuthView"
+
+export const metadata: Metadata = {
+  title: "Sign In | AcademyIO",
+  robots: { index: false, follow: false },
+}
 
 type LoginPageProps = {
   params: Promise<{ countryCode: string }>
@@ -11,15 +18,13 @@ type LoginPageProps = {
 export default async function LoginPage(props: LoginPageProps) {
   const { countryCode } = await props.params
   const searchParams = await props.searchParams
-  const returnUrl = (searchParams?.returnUrl as string) || (searchParams?.redirect as string) || ""
+  const rawReturnUrl = (searchParams?.returnUrl as string) || (searchParams?.redirect as string) || ""
 
-  // When already logged in, do not show login page — redirect to returnUrl or account dashboard
+  // When already logged in, redirect to validated safe path or account dashboard
   const customer = await retrieveCustomer().catch(() => null)
   if (customer) {
-    if (returnUrl) {
-      redirect(returnUrl)
-    }
-    redirect(`/${countryCode}/account`)
+    const safeTarget = sanitizeRedirectPath(rawReturnUrl, `/${countryCode}/account`)
+    redirect(safeTarget)
   }
 
   return (

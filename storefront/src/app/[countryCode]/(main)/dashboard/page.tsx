@@ -1,14 +1,20 @@
 import React from "react"
+import { Metadata } from "next"
 import { cookies } from "next/headers"
 import Link from "next/link"
 import { retrieveCustomer } from "@lib/data/customer"
 import { getCustomerCertificates, getCustomerEntitlements, getCustomerSubscription, getWebinars } from "@lib/data/webinars"
 import { listOrders } from "@lib/data/orders"
 import CustomerDashboardView from "@/components/dashboard/CustomerDashboardView"
-import { Lock, ArrowRight, ShieldCheck } from "lucide-react"
+import { Lock, ArrowRight } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
+
+export const metadata: Metadata = {
+  title: "Customer Dashboard | AcademyIO",
+  robots: { index: false, follow: false },
+}
 
 export default async function DashboardPage(props: {
   params: Promise<{ countryCode: string }>
@@ -23,42 +29,8 @@ export default async function DashboardPage(props: {
   const token = cookieStore.get("_medusa_jwt")?.value
   const customer = await retrieveCustomer()
 
-  let entitlementsData = null
-  let subscriptionData = null
-  let certificatesData = null
-  let ordersList: any[] = []
-
-  const [{ webinars = [] }, ordersRes] = await Promise.all([
-    getWebinars({ limit: 100 }).catch(() => ({ webinars: [] })),
-    listOrders(50).catch(() => []),
-  ])
-  ordersList = ordersRes || []
-
-  let tokenCustomerId: string | null = null
-  let tokenEmail: string | null = null
-  if (token) {
-    try {
-      const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString())
-      tokenCustomerId = payload.actor_id || payload.app_metadata?.customer_id || null
-      tokenEmail = payload.email || payload.user_metadata?.email || null
-    } catch (_) {}
-  }
-
-  if (token) {
-    const [entRes, subRes] = await Promise.all([
-      getCustomerEntitlements(token).catch(() => null),
-      getCustomerSubscription(token).catch(() => null),
-    ])
-    entitlementsData = entRes
-    subscriptionData = subRes
-
-    const effectiveCustomerId =
-      customer?.id || tokenCustomerId || entitlementsData?.purchased_webinars?.[0]?.customer_id
-    certificatesData = await getCustomerCertificates(token, effectiveCustomerId).catch(() => null)
-  }
-
-  // If unauthenticated, show a clean, professional login gate
-  if (!customer && !entitlementsData && !token) {
+  // Strict auth gate: require verified customer session (never bypass on expired/forged cookie)
+  if (!customer || !token) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-6">
         <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto shadow-sm border border-blue-200 dark:border-blue-800">
@@ -93,22 +65,21 @@ export default async function DashboardPage(props: {
     )
   }
 
-  const effectiveCustomerId =
-    customer?.id || tokenCustomerId || entitlementsData?.purchased_webinars?.[0]?.customer_id || ""
+  const [{ webinars = [] }, ordersRes, entitlementsData, subscriptionData, certificatesData] = await Promise.all([
+    getWebinars({ limit: 100 }).catch(() => ({ webinars: [] })),
+    listOrders(50).catch(() => []),
+    getCustomerEntitlements(token).catch(() => null),
+    getCustomerSubscription(token).catch(() => null),
+    getCustomerCertificates(token, customer.id).catch(() => null),
+  ])
+  const ordersList = ordersRes || []
 
   return (
     <CustomerDashboardView
-      customer={
-        customer || {
-          id: effectiveCustomerId,
-          email: entitlementsData?.customer_email || tokenEmail || "",
-          first_name: "Member",
-          last_name: "Account",
-        }
-      }
+      customer={customer}
       summary={
         entitlementsData?.summary || {
-          total_orders_with_webinars: ordersList.length || 2,
+          total_orders_with_webinars: ordersList.length,
         }
       }
       purchasedWebinars={entitlementsData?.purchased_webinars || []}
@@ -119,7 +90,7 @@ export default async function DashboardPage(props: {
       activeTab={activeTab}
       initialSubscription={subscriptionData}
       initialCertificates={certificatesData}
-      authToken={token || ""}
+      authToken={token}
     />
   )
 }

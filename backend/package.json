@@ -13,7 +13,7 @@
     "medusa"
   ],
   "scripts": {
-    "build": "node scripts/patch-dashboard-sidebar.js && medusa build && mkdir -p ./public && cp -r .medusa/server/public/admin ./public/ 2>/dev/null || true",
+    "build": "node scripts/patch-dashboard-sidebar.js && medusa build && mkdir -p ./public && (cp -r .medusa/server/public/admin ./public/ 2>/dev/null || true)",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "start": "if [ -f \"./public/admin/index.html\" ]; then medusa start; elif [ -f \".medusa/server/public/admin/index.html\" ]; then cd .medusa/server && medusa start; else medusa build && medusa start; fi",
     "dev": "medusa develop",

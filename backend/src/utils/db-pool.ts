@@ -8,10 +8,16 @@ let globalPool: Pool | null = null
  */
 export function getSharedPool(): Pool {
   if (!globalPool) {
-    const rawConnectionString =
-      process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa"
+    const rawConnectionString = process.env.DATABASE_URL
+    if (!rawConnectionString) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("[SECURITY] DATABASE_URL environment variable is required in production.")
+      }
+    }
+    const effectiveConnectionString =
+      rawConnectionString || "postgres://localhost:5432/academyio_medusa"
 
-    let connectionString = rawConnectionString
+    let connectionString = effectiveConnectionString
     if (connectionString.includes("sslmode=require") && !connectionString.includes("uselibpqcompat")) {
       connectionString += connectionString.includes("?") ? "&uselibpqcompat=true" : "?uselibpqcompat=true"
     }
@@ -21,11 +27,13 @@ export function getSharedPool(): Pool {
       connectionString.includes("sslmode=require") ||
       process.env.NODE_ENV === "production"
 
+    const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false"
+
     globalPool = new Pool({
       connectionString,
       ssl: isRemote
         ? {
-            rejectUnauthorized: false,
+            rejectUnauthorized,
           }
         : undefined,
       max: 10,

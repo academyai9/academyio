@@ -1,6 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { unsubscribeByToken, unsubscribeByEmail } from "../../../../utils/newsletter-db"
+import { unsubscribeByToken } from "../../../../utils/newsletter-db"
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
@@ -12,18 +12,12 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         : typeof req.query.token === "string"
         ? req.query.token.trim()
         : ""
-    const email =
-      typeof body.email === "string"
-        ? body.email.trim()
-        : typeof req.query.email === "string"
-        ? req.query.email.trim()
-        : ""
     const reason = typeof body.reason === "string" ? body.reason.trim() : null
 
-    if (!token && !email) {
+    if (!token) {
       return res.status(400).json({
         success: false,
-        error: "Unsubscribe token or email address is required.",
+        error: "A valid unsubscribe token from your email link is required.",
       })
     }
 
@@ -33,12 +27,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       req.socket?.remoteAddress ||
       null
 
-    let result: any
-    if (token) {
-      result = await unsubscribeByToken(pgConnection, token, reason, clientIp)
-    } else {
-      result = await unsubscribeByEmail(pgConnection, email, reason, clientIp)
-    }
+    const result: any = await unsubscribeByToken(pgConnection, token, reason, clientIp)
 
     if (!result.success) {
       return res.status(404).json({
@@ -53,12 +42,10 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       message: "You have been successfully unsubscribed from AcademyIO marketing newsletters.",
     })
   } catch (error: any) {
-    console.error("[Newsletter Unsubscribe Route] Error:", error)
+    console.error("[Newsletter Unsubscribe Route] Error:", error?.message || error)
     return res.status(500).json({
       success: false,
-      error: error.message || "Failed to process unsubscribe request.",
+      error: "Failed to process unsubscribe request.",
     })
   }
 }
-
-export const GET = POST

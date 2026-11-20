@@ -1,0 +1,93 @@
+name: CI & Security Gate
+
+on:
+  push:
+    branches: [main, security-audit-hardening]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret & Credential Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks secret scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for tracked .env files
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.(local|production|development|staging|test)$)'; then
+            echo "ERROR: Tracked .env file detected!"
+            exit 1
+          fi
+
+  backend-ci:
+    name: Backend Typecheck, Unit Tests & Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Audit high/critical dependencies
+        run: npm audit --audit-level=high || true
+
+  storefront-ci:
+    name: Storefront Typecheck & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: storefront
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: storefront/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: Production build check
+        env:
+          MEDUSA_BACKEND_URL: http://localhost:9000
+          NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
+          NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: pk_ci_placeholder
+          NEXT_PUBLIC_BASE_URL: https://www.academyio.com
+          NEXT_PUBLIC_DEFAULT_REGION: us
+        run: npm run build

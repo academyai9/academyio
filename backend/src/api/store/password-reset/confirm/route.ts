@@ -1,12 +1,17 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Pool } from "pg"
 import scryptKdf from "scrypt-kdf"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
+import { getSharedPool } from "../../../../utils/db-pool"
+import { checkRateLimit, getClientIp } from "../../../../utils/rate-limiter"
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
+  const clientIp = getClientIp(req)
+  const ipLimit = checkRateLimit("pw_reset_confirm_ip", clientIp, 10, 15 * 60 * 1000)
+  if (!ipLimit.allowed) {
+    return res.status(429).json({
+      message: "Too many password reset attempts. Please try again later.",
+    })
+  }
+
   const body = (req.body as any) || {}
   const token = (body.token as string || "").trim()
   const email = (body.email as string || "").trim().toLowerCase()
@@ -19,6 +24,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     return res.status(400).json({ message: "Password must be at least 8 characters in length." })
   }
 
+  const pool = getSharedPool()
   const client = await pool.connect()
   try {
     // 1. Verify token in customer_password_reset

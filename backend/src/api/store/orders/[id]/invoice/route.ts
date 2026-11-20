@@ -1,65 +1,32 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Pool } from "pg"
 import { generateInvoicePdf, InvoicePdfData } from "../../../../../utils/generate-invoice-pdf"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
+import { getSharedPool } from "../../../../../utils/db-pool"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const { id } = req.params
+  const actorId = (req as any).auth_context?.actor_id
 
   if (!id) {
     return res.status(400).json({ message: "Order ID is required." })
   }
 
+  if (!actorId) {
+    return res.status(401).json({ message: "Authentication required to access order invoices." })
+  }
+
+  const pool = getSharedPool()
   const client = await pool.connect()
   try {
-    // 1. Resolve Customer if authenticated
-    let customer: any = null
-    const actorId = (req as any).auth_context?.actor_id
+    // 1. Load verified authenticated customer
+    const custRes = await client.query(
+      "SELECT id, email, first_name, last_name, metadata, company_name, phone FROM customer WHERE id = $1 AND deleted_at IS NULL",
+      [actorId]
+    )
 
-    if (actorId) {
-      const custRes = await client.query(
-        "SELECT id, email, first_name, last_name, metadata, company_name, phone FROM customer WHERE id = $1",
-        [actorId]
-      )
-      if (custRes.rows.length > 0) {
-        customer = custRes.rows[0]
-      }
+    if (custRes.rows.length === 0) {
+      return res.status(401).json({ message: "Authenticated customer account not found." })
     }
-
-    if (!customer) {
-      const authHeader = req.headers["authorization"]
-      let token = authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-        ? authHeader.replace("Bearer ", "").trim()
-        : null
-
-      if (!token) {
-        token = (req.query.token as string) || null
-      }
-
-      if (!token && req.headers.cookie) {
-        const match = req.headers.cookie.match(/_medusa_jwt=([^;]+)/)
-        if (match) token = match[1]
-      }
-
-      if (token) {
-        try {
-          const decoded = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString())
-          const customerId = decoded.actor_id || decoded.app_metadata?.customer_id
-          if (customerId) {
-            const custCheck = await client.query(
-              "SELECT id, email, first_name, last_name, metadata, company_name, phone FROM customer WHERE id = $1",
-              [customerId]
-            )
-            if (custCheck.rows.length > 0) {
-              customer = custCheck.rows[0]
-            }
-          }
-        } catch (_) {}
-      }
-    }
+    const customer = custRes.rows[0]
 
     // 2. Query order from Database
     const orderRes = await client.query(
@@ -77,11 +44,13 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 
     const order = orderRes.rows[0]
 
-    // Authorization check: If logged-in customer exists, ensure order email/customer_id matches
-    if (customer && customer.email && order.email) {
-      if (customer.email.toLowerCase() !== order.email.toLowerCase() && customer.id !== order.customer_id) {
-        return res.status(403).json({ message: "Unauthorized to access this invoice." })
-      }
+    // 3. Strict ownership check (never bypass)
+    const ownsById = Boolean(order.customer_id && customer.id === order.customer_id)
+    const ownsByEmail = Boolean(
+      customer.email && order.email && customer.email.toLowerCase() === order.email.toLowerCase()
+    )
+    if (!ownsById && !ownsByEmail) {
+      return res.status(403).json({ message: "Unauthorized to access this invoice." })
     }
 
     const displayId = order.display_id ? String(order.display_id) : order.id.slice(-8).toUpperCase()

@@ -9,21 +9,11 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
     const { id: webinarId } = req.params
 
-    let customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string)
-    const customerEmail = req.query.customer_email as string
+    const customerId = (req as any).auth_context?.actor_id
 
-    if (!customerId && customerEmail) {
-      const custRes = await pgConnection.raw(
-        `SELECT id FROM customer WHERE email = ? LIMIT 1;`,
-        [customerEmail]
-      )
-      if (custRes.rows?.[0]) {
-        customerId = custRes.rows[0].id
-      }
-    }
-
-    if (!customerId && !customerEmail) {
-      return res.json({
+    if (!customerId) {
+      return res.status(401).json({
+        message: "Authentication required",
         is_authenticated: false,
         has_active_subscription: false,
         is_registered: false,
@@ -51,13 +41,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     const activeEnt = isRegistered ? activeEntitlements[0] : null
 
     // 3. Check customer subscription
-    const subFilter: Record<string, any> = { status: "active" }
-    if (customerId) subFilter.customer_id = customerId
-
-    let activeSubs = await webinarService.listCustomerSubscriptions(subFilter)
-    if ((!activeSubs || activeSubs.length === 0) && customerEmail) {
-      activeSubs = await webinarService.listCustomerSubscriptions({ customer_email: customerEmail, status: "active" })
-    }
+    const activeSubs = await webinarService.listCustomerSubscriptions({
+      customer_id: customerId,
+      status: "active",
+    })
 
     const validSub = (activeSubs || []).find((s: any) => new Date(s.current_period_end) > now)
 
@@ -184,30 +171,18 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const { id: webinarId } = req.params
     const body = (req.body as Record<string, any>) || {}
 
-    let customerId = (req as any).auth_context?.actor_id || body.customer_id
-    let customerEmail = body.customer_email
-
-    if (!customerId && customerEmail) {
-      const custRes = await pgConnection.raw(
-        `SELECT id, email FROM customer WHERE email = ? LIMIT 1;`,
-        [customerEmail]
-      )
-      if (custRes.rows?.[0]) {
-        customerId = custRes.rows[0].id
-        customerEmail = custRes.rows[0].email
-      }
-    } else if (customerId && !customerEmail) {
-      const custRes = await pgConnection.raw(
-        `SELECT id, email FROM customer WHERE id = ? LIMIT 1;`,
-        [customerId]
-      )
-      if (custRes.rows?.[0]) {
-        customerEmail = custRes.rows[0].email
-      }
-    }
-
+    const customerId = (req as any).auth_context?.actor_id
     if (!customerId) {
       return res.status(401).json({ message: "Authentication required to register for webinars with your subscription." })
+    }
+
+    let customerEmail: string | null = null
+    const custRes = await pgConnection.raw(
+      `SELECT id, email FROM customer WHERE id = ? AND deleted_at IS NULL LIMIT 1;`,
+      [customerId]
+    )
+    if (custRes.rows?.[0]) {
+      customerEmail = custRes.rows[0].email
     }
 
     // 1. Fetch webinar
@@ -293,14 +268,29 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       }
     }
 
-    // 7. Create Customer Entitlement record
+    // 7. Create Customer Entitlement record respecting the plan's actual access permissions
+    const isFullBundle =
+      Boolean(plan.includes_live) &&
+      Boolean(plan.includes_recording) &&
+      Boolean(plan.includes_transcript) &&
+      Boolean(plan.includes_pdf)
+    const derivedAccessType = isFullBundle
+      ? "bundle"
+      : plan.includes_live
+      ? "live"
+      : plan.includes_recording
+      ? "recording"
+      : plan.includes_transcript
+      ? "transcript"
+      : "pdf"
+
     const entitlement = await webinarService.createCustomerEntitlements({
       customer_id: customerId,
       customer_email: customerEmail || validSub.customer_email || "customer@academyio.com",
       webinar: webinar.id,
       order_id: `SUB_${validSub.id}`,
       variant_title: `Subscription Pass (${plan.name})`,
-      access_type: "bundle",
+      access_type: derivedAccessType,
       status: "active",
       granted_at: now,
       expires_at: validSub.current_period_end,

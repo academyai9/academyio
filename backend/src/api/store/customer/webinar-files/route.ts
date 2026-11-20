@@ -4,18 +4,19 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
     const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION)
-    const customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string)
+    const customerId = (req as any).auth_context?.actor_id
 
     if (!customerId) {
       return res.status(401).json({ message: "Authentication required to access webinar materials." })
     }
 
-    // 1. Check Customer Subscription
+    // 1. Check Customer Subscription (must be active and not expired)
     const subRes = await pgConnection.raw(
       `
       SELECT id, status, current_period_end
       FROM customer_subscription
-      WHERE customer_id = $1 AND status = 'active' AND deleted_at IS NULL
+      WHERE customer_id = ? AND status = 'active' AND deleted_at IS NULL
+        AND (current_period_end IS NULL OR current_period_end > NOW())
     `,
       [customerId]
     )
@@ -26,21 +27,21 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       `
       SELECT webinar_id, access_type, status, expires_at
       FROM customer_entitlement
-      WHERE customer_id = $1 AND status = 'active' AND deleted_at IS NULL
+      WHERE customer_id = ? AND status = 'active' AND deleted_at IS NULL
     `,
       [customerId]
     )
 
-    // 3. Check Customer Orders
+    // 3. Check Customer Orders (strictly via product_id — never untrusted metadata)
     const orderRes = await pgConnection.raw(
       `
       SELECT o.id, o.status, oli.variant_id, oli.title, wvm.option_type,
-             COALESCE(oli.metadata->>'webinar_id', w.id) as webinar_id
+             w.id as webinar_id
       FROM "order" o
       JOIN order_line_item oli ON oli.order_id = o.id
-      LEFT JOIN webinar w ON w.product_id = oli.product_id
+      JOIN webinar w ON w.product_id = oli.product_id
       LEFT JOIN webinar_variant_mapping wvm ON wvm.variant_id = oli.variant_id
-      WHERE o.customer_id = $1
+      WHERE o.customer_id = ?
         AND o.deleted_at IS NULL
         AND o.status NOT IN ('canceled', 'archived')
     `,
@@ -102,7 +103,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     if (!hasActiveSubscription) {
       const authorizedWebinarIds = Array.from(webinarAccessMap.keys())
       params.push(authorizedWebinarIds)
-      query += ` AND wf.webinar_id = ANY($1) `
+      query += ` AND wf.webinar_id = ANY(?) `
     }
 
     query += ` ORDER BY w.title ASC, wf.display_order ASC, wf.created_at DESC `
@@ -117,7 +118,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       if (!options) return false
 
       if (options.has("bundle") || options.has("all")) return true
-      if (f.purchase_option === "all" || f.purchase_option === "bundle") return true
+      if (f.purchase_option === "all") return true
 
       const opt = f.purchase_option?.toLowerCase()
       const mat = f.material_type?.toLowerCase()
