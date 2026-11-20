@@ -67,14 +67,10 @@ async function initPaymentMethods() {
     console.log("Database tables verified.")
 
     // 3. Seed or update default payment configurations
-    // Stripe
-    const stripeLiveSecret =
-      process.env.STRIPE_API_KEY ||
-      "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"
-    const stripeLiveWebhook =
-      process.env.STRIPE_WEBHOOK_SECRET || "whsec_Igrde4yvnsliy1pBQ0AGPlwfm8s8Hu6z"
-    const stripeLivePub =
-      "pk_live_51TgLM2DytEyXCfXkGZQV4b3ILIudh0AMz9OPF8At35X3Z8rSy1sep8O1vQfjNQnsbDV48kznWQBc7tqqhCh7ussi00RngOJyJa"
+    // Stripe — credentials MUST come from environment variables (never hardcoded)
+    const stripeLiveSecret = process.env.STRIPE_API_KEY || null
+    const stripeLiveWebhook = process.env.STRIPE_WEBHOOK_SECRET || null
+    const stripeLivePub = process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_KEY || null
 
     await client.query(
       `

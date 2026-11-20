@@ -15,21 +15,9 @@ import {
   removeCartId,
   setAuthToken,
 } from "./cookies"
-import { Pool } from "pg"
 import { verifyTurnstileToken } from "@lib/util/verify-turnstile"
 import { fetchWithTimeout } from "@lib/util/fetch"
-
-const DB_CONNECTION_STRING =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_eVfLTi3pF5CE@ep-calm-meadow-b4nc559a-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require"
-
-const pool = new Pool({
-  connectionString: DB_CONNECTION_STRING,
-  ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 4000,
-  idleTimeoutMillis: 10000,
-  max: 5,
-})
+import { sanitizeRedirectPath } from "@lib/util/safe-redirect"
 
 export const retrieveCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
@@ -169,7 +157,15 @@ export async function signup(_currentState: unknown, formData: FormData) {
     metadata,
   }
 
-  // 3. Fast Direct Registration with Medusa Backend
+  // 3. Server-side Cloudflare Turnstile verification (when configured)
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    const captchaCheck = await verifyTurnstileToken(captchaToken)
+    if (!captchaCheck.success) {
+      return captchaCheck.message || "Security verification failed. Please complete the CAPTCHA check and try again."
+    }
+  }
+
+  // 4. Fast Direct Registration with Medusa Backend
   try {
     const token = await sdk.auth.register("customer", "emailpass", {
       email: customerForm.email,
@@ -202,81 +198,7 @@ export async function signup(_currentState: unknown, formData: FormData) {
     const msg = error?.message || error?.toString() || ""
 
     if (msg.includes("Identity with email already exists") || msg.includes("already exists")) {
-      // Check if this was a past guest purchase customer without an account password
-      try {
-        const guestRes = await pool.query(
-          `SELECT c.id FROM customer c
-           LEFT JOIN auth_identity ai ON (ai.app_metadata->>'customer_id' = c.id AND ai.deleted_at IS NULL)
-           WHERE LOWER(c.email) = LOWER($1) AND c.deleted_at IS NULL AND ai.id IS NULL
-           LIMIT 1`,
-          [customerForm.email]
-        )
-
-        if (guestRes.rows.length > 0) {
-          const existingCustomerId = guestRes.rows[0].id
-          const claimToken = await sdk.auth.register("customer", "emailpass", {
-            email: customerForm.email,
-            password: password,
-            captcha_token: captchaToken,
-          } as any)
-
-          let authIdentityId: string | null = null
-          if (typeof claimToken === "string") {
-            try {
-              const payload = JSON.parse(Buffer.from(claimToken.split(".")[1], "base64").toString())
-              authIdentityId = payload.auth_identity_id || null
-            } catch (_) {}
-          }
-
-          if (authIdentityId) {
-            await pool.query(
-              `UPDATE auth_identity 
-               SET app_metadata = jsonb_set(COALESCE(app_metadata, '{}'::jsonb), '{customer_id}', to_jsonb($1::text)),
-                   updated_at = NOW()
-               WHERE id = $2`,
-              [existingCustomerId, authIdentityId]
-            )
-          }
-
-          await pool.query(
-            `UPDATE customer
-             SET first_name = COALESCE(NULLIF($1, ''), first_name),
-                 last_name = COALESCE(NULLIF($2, ''), last_name),
-                 phone = COALESCE(NULLIF($3, ''), phone),
-                 company_name = COALESCE(NULLIF($4, ''), company_name),
-                 metadata = COALESCE($5::jsonb, metadata),
-                 has_account = true,
-                 updated_at = NOW()
-             WHERE id = $6`,
-            [
-              customerForm.first_name || null,
-              customerForm.last_name || null,
-              customerForm.phone || null,
-              customerForm.company_name || null,
-              customerForm.metadata ? JSON.stringify(customerForm.metadata) : null,
-              existingCustomerId,
-            ]
-          )
-
-          const sessionToken = await sdk.auth.login("customer", "emailpass", {
-            email: customerForm.email,
-            password,
-          })
-
-          await setAuthToken(sessionToken as string)
-
-          const customerCacheTag = await getCacheTag("customers")
-          if (customerCacheTag) revalidateTag(customerCacheTag)
-
-          await transferCart().catch(() => null)
-
-          return { id: existingCustomerId, email: customerForm.email }
-        }
-      } catch (claimErr) {
-        console.warn("Guest account claiming notice:", claimErr)
-      }
-
-      return "An account with this email address already exists. Please sign in instead."
+      return "An account with this email address already exists. Please sign in or reset your password."
     }
 
     if (msg.includes("invalid_captcha") || msg.includes("CAPTCHA")) {
@@ -393,25 +315,14 @@ export async function login(_currentState: unknown, formData: FormData) {
   const customerCacheTag = await getCacheTag("customers")
   if (customerCacheTag) revalidateTag(customerCacheTag)
 
-  // 3. Fire-and-forget: Record last login timestamp asynchronously in background (non-blocking)
-  pool
-    .query(
-      `UPDATE customer 
-       SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{last_login_at}', to_jsonb(NOW()::text)),
-           updated_at = NOW()
-       WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
-      [email]
-    )
-    .catch((err) => console.warn("Notice: could not record last_login_at:", err?.message || err))
-
-  // 4. Transfer Cart if user enrolled before logging in
+  // 3. Transfer Cart if user enrolled before logging in
   try {
     await transferCart()
   } catch (cartError) {
     console.warn("Notice: Cart transfer during login skipped:", cartError)
   }
 
-  // 5. Account status verification (fast check)
+  // 4. Account status verification & last_login_at recording via authenticated Store API
   try {
     const customer = await retrieveCustomer().catch(() => null)
     const accStatus = customer?.metadata?.account_status
@@ -419,25 +330,54 @@ export async function login(_currentState: unknown, formData: FormData) {
       await removeAuthToken()
       return `Your account has been ${accStatus}. Please contact AcademyIO Support at support@academyio.com for assistance.`
     }
+    if (customer) {
+      sdk.store.customer
+        .update(
+          {
+            metadata: {
+              ...(customer.metadata || {}),
+              last_login_at: new Date().toISOString(),
+            },
+          },
+          {},
+          { authorization: `Bearer ${token}` }
+        )
+        .catch(() => null)
+    }
   } catch (_) {}
 
   return null
 }
 
 export async function signout(countryCode: string, redirectTo?: string) {
-  await sdk.auth.logout()
+  const authHeaders = await getAuthHeaders()
+  if (authHeaders && "authorization" in authHeaders) {
+    await fetchWithTimeout(`${BACKEND_URL}/auth/session`, {
+      method: "DELETE",
+      headers: {
+        ...authHeaders,
+        "x-publishable-api-key": PUBLISHABLE_KEY,
+      },
+      cache: "no-store",
+    }).catch(() => null)
+  }
+  await sdk.auth.logout().catch(() => null)
 
   await removeAuthToken()
 
   const customerCacheTag = await getCacheTag("customers")
-  revalidateTag(customerCacheTag)
+  if (customerCacheTag) revalidateTag(customerCacheTag)
 
   await removeCartId()
 
   const cartCacheTag = await getCacheTag("carts")
-  revalidateTag(cartCacheTag)
+  if (cartCacheTag) revalidateTag(cartCacheTag)
 
-  redirect(redirectTo || `/${countryCode}/login?logged_out=true`)
+  const safeDest = sanitizeRedirectPath(
+    redirectTo,
+    `/${countryCode}/login?logged_out=true`
+  )
+  redirect(safeDest)
 }
 
 export async function transferCart() {
@@ -591,12 +531,9 @@ export async function requestPasswordReset(email: string) {
 
     return {
       success: true,
-      message: data.message,
-      is_guest: data.is_guest || false,
-      has_account: data.has_account !== false,
-      reset_token: data.reset_token || null,
-      reset_link: data.reset_link || null,
-      expires_at: data.expires_at || null,
+      message:
+        data.message ||
+        "If an account exists with this email, you will receive password reset instructions shortly.",
     }
   } catch (err: any) {
     console.error("requestPasswordReset error:", err)

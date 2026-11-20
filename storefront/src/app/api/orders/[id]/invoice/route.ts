@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { BACKEND_URL, PUBLISHABLE_KEY } from "@lib/config-env"
 
 export async function GET(
   request: NextRequest,
@@ -6,34 +8,31 @@ export async function GET(
 ) {
   const { id } = await context.params
 
-  if (!id) {
-    return NextResponse.json({ message: "Order ID is required." }, { status: 400 })
+  if (!id || !/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return NextResponse.json({ message: "Valid Order ID is required." }, { status: 400 })
   }
 
   try {
-    const backendUrl = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
-    const apiKey =
-      process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
-      "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978"
+    const cookieStore = await cookies()
+    const jwtCookie = cookieStore.get("_medusa_jwt")?.value
+    const incomingAuth = request.headers.get("authorization")
+
+    const authValue = jwtCookie
+      ? `Bearer ${jwtCookie}`
+      : incomingAuth && incomingAuth.startsWith("Bearer ")
+      ? incomingAuth
+      : null
+
+    if (!authValue) {
+      return NextResponse.json({ message: "Authentication required to download invoice." }, { status: 401 })
+    }
 
     const headers: Record<string, string> = {
-      "x-publishable-api-key": apiKey,
+      "x-publishable-api-key": PUBLISHABLE_KEY,
+      authorization: authValue,
     }
 
-    const authHeader = request.headers.get("authorization")
-    if (authHeader) {
-      headers["authorization"] = authHeader
-    }
-
-    const cookieHeader = request.headers.get("cookie")
-    if (cookieHeader) {
-      headers["cookie"] = cookieHeader
-    }
-
-    const tokenParam = request.nextUrl.searchParams.get("token")
-    const query = tokenParam ? `?token=${encodeURIComponent(tokenParam)}` : ""
-
-    const response = await fetch(`${backendUrl}/store/orders/${encodeURIComponent(id)}/invoice${query}`, {
+    const response = await fetch(`${BACKEND_URL}/store/orders/${encodeURIComponent(id)}/invoice`, {
       method: "GET",
       headers,
       cache: "no-store",

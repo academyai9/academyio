@@ -13,7 +13,13 @@ export default defineMiddlewares({
     {
       matcher: "/store/customer/*",
       middlewares: [
-        authenticate("customer", ["session", "bearer"], { allowUnauthenticated: true }),
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/orders/:id/invoice",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
       ],
     },
     {
@@ -108,9 +114,16 @@ export default defineMiddlewares({
       ],
     },
     {
+      matcher: "/admin/webinar-files/local-upload",
+      bodyParser: false,
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
       matcher: "/admin/webinar-files*",
       bodyParser: {
-        sizeLimit: "600mb",
+        sizeLimit: "10mb",
       },
       middlewares: [
         authenticate("user", ["session", "bearer", "api-key"]),
@@ -148,6 +161,42 @@ export default defineMiddlewares({
     },
     {
       matcher: "/admin/newsletter-campaigns*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/payment-methods*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/pages*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/credits*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/other-info*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/social-media*",
+      middlewares: [
+        authenticate("user", ["session", "bearer", "api-key"]),
+      ],
+    },
+    {
+      matcher: "/admin/custom*",
       middlewares: [
         authenticate("user", ["session", "bearer", "api-key"]),
       ],

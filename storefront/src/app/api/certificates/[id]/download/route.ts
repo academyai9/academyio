@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { retrieveCustomer } from "@lib/data/customer"
 import { generateCertificatePdf } from "@lib/util/generate-certificate-pdf"
-import { Pool } from "pg"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
-
+import { BACKEND_URL, PUBLISHABLE_KEY } from "@lib/config-env"
 import { sdk } from "@lib/config"
 
 export async function GET(
@@ -15,97 +11,105 @@ export async function GET(
 ) {
   const { id } = await context.params
 
-  let customer = await retrieveCustomer()
-  const client = await pool.connect()
+  if (!id || !/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return NextResponse.json({ message: "Invalid certificate ID" }, { status: 400 })
+  }
+
   try {
-    if (!customer) {
-      const authHeader = request.headers.get("authorization")
-      let token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.replace("Bearer ", "").trim() : null
-      if (!token) {
-        token = request.nextUrl.searchParams.get("token")
-      }
+    const cookieStore = await cookies()
+    const cookieToken = cookieStore.get("_medusa_jwt")?.value || null
+    const authHeader = request.headers.get("authorization")
+    const bearerToken =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.replace("Bearer ", "").trim()
+        : null
 
-      if (token) {
-        try {
-          const res = await sdk.client.fetch<{ customer: any }>("/store/customers/me", {
-            headers: {
-              authorization: `Bearer ${token}`,
-              "x-publishable-api-key": process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978",
-            },
-            cache: "no-store",
-          })
-          customer = res.customer
-        } catch {}
+    const effectiveToken = cookieToken || bearerToken
+    let customer = await retrieveCustomer()
 
-        if (!customer) {
-          try {
-            const decoded = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString())
-            if (decoded && decoded.actor_id) {
-              const custCheck = await client.query("SELECT id, email, first_name, last_name FROM customer WHERE id = $1", [decoded.actor_id])
-              if (custCheck.rows.length > 0) {
-                customer = custCheck.rows[0]
-              }
-            }
-          } catch {}
-        }
+    // If not resolved from httpOnly cookie, verify bearer token strictly via backend API
+    if (!customer && bearerToken) {
+      try {
+        const res = await sdk.client.fetch<{ customer: any }>("/store/customers/me", {
+          headers: {
+            authorization: `Bearer ${bearerToken}`,
+            "x-publishable-api-key": PUBLISHABLE_KEY,
+          },
+          cache: "no-store",
+        })
+        customer = res.customer
+      } catch {
+        customer = null
       }
     }
 
-    if (!customer) {
-      const customerIdQuery = request.nextUrl.searchParams.get("customer_id")
-      if (customerIdQuery) {
-        const custCheck = await client.query("SELECT id, email, first_name, last_name FROM customer WHERE id = $1", [customerIdQuery])
-        if (custCheck.rows.length > 0) {
-          customer = custCheck.rows[0]
-        }
+    if (!customer || !effectiveToken) {
+      return NextResponse.json(
+        { message: "Authentication required to download certificate" },
+        { status: 401 }
+      )
+    }
+
+    // Fetch certificate strictly through authenticated backend endpoint (enforces customer_id === actor_id)
+    const certApiRes = await fetch(
+      `${BACKEND_URL}/store/customer/certificates/${encodeURIComponent(id)}`,
+      {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${effectiveToken}`,
+          "x-publishable-api-key": PUBLISHABLE_KEY,
+        },
+        cache: "no-store",
       }
-    }
-
-    if (!customer) {
-      return NextResponse.json({ message: "Authentication required to download certificate" }, { status: 401 })
-    }
-
-    const certRes = await client.query(
-      `SELECT c.*, w.title as web_title, w.speaker_name as web_speaker, w.category as web_category, w.event_date as web_date
-       FROM webinar_certificate c
-       LEFT JOIN webinar w ON c.webinar_id = w.id
-       WHERE c.id = $1 AND (c.customer_id = $2 OR c.customer_email = $3) AND c.deleted_at IS NULL`,
-      [id, customer.id, customer.email]
     )
 
-    if (certRes.rows.length === 0) {
-      return NextResponse.json({ message: "Certificate not found or unauthorized access" }, { status: 404 })
+    if (!certApiRes.ok) {
+      return NextResponse.json(
+        { message: "Certificate not found or unauthorized access" },
+        { status: certApiRes.status === 401 ? 401 : 404 }
+      )
     }
 
-    const cert = certRes.rows[0]
+    const { certificate: cert } = await certApiRes.json()
+    if (!cert) {
+      return NextResponse.json(
+        { message: "Certificate not found or unauthorized access" },
+        { status: 404 }
+      )
+    }
 
     const pdfBytes = await generateCertificatePdf({
       certificate_number: cert.certificate_number,
-      customer_name: cert.customer_name || `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || customer.email,
+      customer_name:
+        cert.customer_name ||
+        `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
+        customer.email,
       webinar_title: cert.webinar_title || cert.web_title,
       speaker_name: cert.speaker_name || cert.web_speaker,
-      event_date: cert.event_date || cert.web_date,
+      event_date: cert.event_date || cert.webinar_event_date || cert.web_date,
       issue_date: cert.issue_date,
       cpe_credits: cert.cpe_credits,
       score_percentage: cert.score_percentage,
       signatory_name: cert.signatory_name || cert.web_speaker,
       signatory_title: cert.signatory_title,
       issuer_name: cert.issuer_name,
-      category: cert.web_category,
+      category: cert.webinar_category || cert.web_category,
     })
+
+    // Sanitize certificate_number to prevent Content-Disposition header injection
+    const safeCertNum = String(cert.certificate_number || id).replace(/[^a-zA-Z0-9_-]/g, "")
 
     return new NextResponse(Buffer.from(pdfBytes) as any, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Certificate-${cert.certificate_number}.pdf"`,
-        "Cache-Control": "private, max-age=3600",
+        "Content-Disposition": `attachment; filename="Certificate-${safeCertNum}.pdf"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     })
   } catch (error: any) {
-    console.error("Error generating certificate PDF:", error)
-    return NextResponse.json({ message: "Failed to generate certificate PDF", error: error.message }, { status: 500 })
-  } finally {
-    client.release()
+    console.error("Error generating certificate PDF:", error?.message || error)
+    return NextResponse.json({ message: "Failed to generate certificate PDF" }, { status: 500 })
   }
 }

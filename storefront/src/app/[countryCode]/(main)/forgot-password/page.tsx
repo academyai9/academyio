@@ -65,89 +65,28 @@ export default function ForgotPasswordPage() {
         )}
 
         {result ? (
-          result.is_guest ? (
-            /* Guest Account Notice */
-            <div className="p-5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-4 text-center">
-              <UserCheck className="w-9 h-9 text-blue-600 dark:text-blue-400 mx-auto" />
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-blue-900 dark:text-blue-200">
-                  Guest Enrollment Account Detected
-                </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                  We found your previous webinar purchases under <strong>{email}</strong>, but no password has been created yet. Please register below to set your password and access your dashboard.
-                </p>
-              </div>
-
-              <div className="pt-2 flex flex-col gap-2">
-                <Link
-                  href={`/${countryCode}/register?email=${encodeURIComponent(email)}`}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
-                >
-                  <span>Register & Claim Dashboard Access</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link
-                  href={`/${countryCode}/login`}
-                  className="text-xs text-gray-500 dark:text-slate-400 hover:underline"
-                >
-                  Return to Sign In
-                </Link>
-              </div>
+          /* Uniform Secure Reset Confirmation (no token exposure, no account enumeration) */
+          <div className="p-5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-4 text-center">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400 mx-auto stroke-[2.2]" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                Check Your Email
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                {result.message ||
+                  "If an account exists with this email address, you will receive password reset instructions shortly."}
+              </p>
             </div>
-          ) : (
-            /* Standard Reset Link Generated */
-            <div className="p-5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-4 text-center">
-              <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400 mx-auto stroke-[2.2]" />
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  Password Reset Instructions Ready
-                </p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                  A secure, single-use password reset link has been generated for{" "}
-                  <strong className="font-semibold text-emerald-800 dark:text-emerald-200">{email}</strong>.
-                </p>
-              </div>
 
-              {result.reset_token && (
-                <div className="pt-2 space-y-3">
-                  <Link
-                    href={`/${countryCode}/reset-password?token=${result.reset_token}&email=${encodeURIComponent(email)}`}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Proceed to Set New Password</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopyLink(`/${countryCode}/reset-password?token=${result.reset_token}&email=${encodeURIComponent(email)}`)}
-                    className="w-full py-2 px-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 text-gray-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600 font-bold">Reset Link Copied to Clipboard!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Direct Reset Link</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              <div className="pt-2">
-                <Link
-                  href={`/${countryCode}/login`}
-                  className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold hover:underline"
-                >
-                  Return to Sign In
-                </Link>
-              </div>
+            <div className="pt-2">
+              <Link
+                href={`/${countryCode}/login`}
+                className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold hover:underline"
+              >
+                Return to Sign In
+              </Link>
             </div>
-          )
+          </div>
         ) : (
           /* Input Form */
           <form onSubmit={handleSubmit} className="space-y-4">

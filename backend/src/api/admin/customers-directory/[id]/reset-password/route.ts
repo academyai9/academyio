@@ -120,12 +120,11 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       ]
     )
 
-    console.log(`[ADMIN PASSWORD RESET] Generated and dispatched token for ${email}: ${resetUrl}`)
+    console.log(`[ADMIN PASSWORD RESET] Dispatched reset email for customer ${id}`)
 
     res.json({
       success: true,
       message: `Password reset instructions successfully dispatched to ${email}.`,
-      reset_link: resetUrl,
       expires_at: expiresAt.toISOString(),
       email_delivered: emailResult.success,
     })

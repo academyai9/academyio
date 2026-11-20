@@ -19,9 +19,6 @@ export interface TurnstileVerificationResult {
 
 const CLOUDFLARE_SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
-// Cloudflare Turnstile Secret Key
-const DEFAULT_TURNSTILE_SECRET = "0x4AAAAAAFgxi8gbs0wUCicgzYnc-b2qHI0"
-
 export async function verifyTurnstileToken(
   token?: string | null,
   remoteIp?: string | null
@@ -34,7 +31,7 @@ export async function verifyTurnstileToken(
     }
   }
 
-  const secretKey = process.env.TURNSTILE_SECRET_KEY || DEFAULT_TURNSTILE_SECRET
+  const secretKey = process.env.TURNSTILE_SECRET_KEY?.trim()
 
   if (!secretKey) {
     if (process.env.NODE_ENV === "production") {
@@ -44,6 +41,11 @@ export async function verifyTurnstileToken(
         error_codes: ["missing-secret-key-configuration"],
         message: "Security verification configuration error. Please contact support.",
       }
+    }
+    return {
+      success: true,
+      challenge_ts: new Date().toISOString(),
+      hostname: "localhost-dev",
     }
   }
 

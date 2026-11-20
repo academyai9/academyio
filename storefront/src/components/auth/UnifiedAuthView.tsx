@@ -26,6 +26,7 @@ import {
   LogIn,
 } from "lucide-react"
 import { login, signup } from "@lib/data/customer"
+import { sanitizeRedirectPath } from "@lib/util/safe-redirect"
 import TurnstileWidget from "@components/captcha/TurnstileWidget"
 
 type AuthMode = "register" | "login"
@@ -39,7 +40,8 @@ export default function UnifiedAuthView({ initialMode = "register" }: UnifiedAut
   const params = useParams()
   const searchParams = useSearchParams()
   const countryCode = (params?.countryCode as string) || "us"
-  const returnUrl = searchParams.get("returnUrl") || searchParams.get("redirect") || ""
+  const rawReturnUrl = searchParams.get("returnUrl") || searchParams.get("redirect") || ""
+  const returnUrl = sanitizeRedirectPath(rawReturnUrl, "")
   const tabParam = searchParams.get("tab")
   const isLoggedOut = searchParams.get("logged_out") === "true"
   const isResetSuccess = searchParams.get("reset_success") === "true"

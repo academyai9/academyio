@@ -44,9 +44,10 @@ DATABASE_URL=postgres://user:password@prod-postgres-host:5432/academyio_medusa?s
 # Redis Queue & Event Bus
 REDIS_URL=rediss://default:password@prod-redis-host:6379
 
-# Cryptographic Keys (Generate with `openssl rand -hex 32`)
-JWT_SECRET=0c6b758296a84920b784a9e320498ec5bb87640398f42a98fba6778912304958
-COOKIE_SECRET=9a4892cbe347910283fa74892bb7123908471203984712039487123049871203
+# Cryptographic Keys (Generate unique values with `openssl rand -hex 32`)
+JWT_SECRET=<GENERATE_WITH_OPENSSL_RAND_HEX_32>
+COOKIE_SECRET=<GENERATE_WITH_OPENSSL_RAND_HEX_32>
+PAYMENT_ENCRYPTION_KEY=<GENERATE_WITH_OPENSSL_RAND_HEX_32>
 
 # Production CORS (Set to your actual domains)
 STORE_CORS=https://academyio.com,https://www.academyio.com
@@ -78,7 +79,7 @@ NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://api.academyio.com
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_live_...
 NEXT_PUBLIC_BASE_URL=https://academyio.com
 NEXT_PUBLIC_DEFAULT_REGION=us
-REVALIDATE_SECRET=secure_revalidation_token_123
+REVALIDATE_SECRET=<GENERATE_WITH_OPENSSL_RAND_HEX_32>
 ```
 
 ### B. Vercel Deployment

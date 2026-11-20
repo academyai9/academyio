@@ -17,9 +17,6 @@ export interface TurnstileVerificationResult {
 
 const CLOUDFLARE_SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
-// Cloudflare Turnstile Secret Key (Default Production Secret)
-const DEFAULT_TURNSTILE_SECRET = "0x4AAAAAAFgxi8gbs0wUCicgzYnc-b2qHI0"
-
 export async function verifyTurnstileToken(
   token?: string | null,
   remoteIp?: string | null
@@ -33,35 +30,13 @@ export async function verifyTurnstileToken(
   }
 
   const trimmedToken = token.trim()
+  const isProduction = process.env.NODE_ENV === "production"
 
-  // 1. Client-Side Human Fallback Verification
-  // Used when Cloudflare Turnstile encounters domain-whitelist issues (error 110200) or client network blocks
-  if (trimmedToken.startsWith("human_fallback_")) {
-    const parts = trimmedToken.split("_")
-    const timestampStr = parts[2]
-    const timestamp = parseInt(timestampStr, 10)
-    const now = Date.now()
-
-    // Valid if generated within last 15 minutes
-    if (!isNaN(timestamp) && now - timestamp < 15 * 60 * 1000 && now >= timestamp - 60000) {
-      console.log("[SECURITY] Human fallback verification token accepted.")
-      return {
-        success: true,
-        challenge_ts: new Date().toISOString(),
-        hostname: "human-fallback",
-      }
-    } else {
-      console.warn("[SECURITY] Human fallback token expired or invalid timestamp:", timestampStr)
-      return {
-        success: false,
-        error_codes: ["fallback-token-expired"],
-        message: "Security verification expired. Please complete the check again.",
-      }
-    }
-  }
-
-  // 2. Official Cloudflare Turnstile Testing bypass tokens (for local dev / automated tests)
-  if (trimmedToken === "valid-token" || trimmedToken.startsWith("1x00000000000000000000AA")) {
+  // Official Cloudflare Turnstile testing bypass tokens — strictly disabled in production
+  if (
+    !isProduction &&
+    (trimmedToken === "valid-token" || trimmedToken.startsWith("1x00000000000000000000AA"))
+  ) {
     return {
       success: true,
       challenge_ts: new Date().toISOString(),
@@ -69,42 +44,62 @@ export async function verifyTurnstileToken(
     }
   }
 
-  const secretKey = (process.env.TURNSTILE_SECRET_KEY || DEFAULT_TURNSTILE_SECRET).trim()
+  const secretKey = process.env.TURNSTILE_SECRET_KEY?.trim()
+
+  if (!secretKey) {
+    if (isProduction) {
+      console.error("[SECURITY ERROR] TURNSTILE_SECRET_KEY is not configured in production.")
+      return {
+        success: false,
+        error_codes: ["missing-secret-key-configuration"],
+        message: "Security verification is currently unavailable. Please contact support.",
+      }
+    }
+    // Non-production dev fallback using Cloudflare's official always-pass test secret
+    return {
+      success: true,
+      challenge_ts: new Date().toISOString(),
+      hostname: "localhost-dev",
+    }
+  }
 
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
 
-    // Build verification payload for Cloudflare siteverify API.
-    // NOTE: remoteip is omitted per official Cloudflare docs for reverse proxy / SSR architectures.
     const payload: Record<string, string> = {
       secret: secretKey,
       response: trimmedToken,
     }
 
-    const response = await fetch(CLOUDFLARE_SITEVERIFY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
+    if (remoteIp && typeof remoteIp === "string" && remoteIp.trim()) {
+      payload.remoteip = remoteIp.trim()
+    }
 
-    clearTimeout(timeoutId)
+    let response: Response
+    try {
+      response = await fetch(CLOUDFLARE_SITEVERIFY_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
 
     if (!response.ok) {
       console.error(`[TURNSTILE HTTP ERROR] Status: ${response.status} ${response.statusText}`)
-      // If Cloudflare service is down, fail-open so paying customers are not blocked
       return {
-        success: true,
-        challenge_ts: new Date().toISOString(),
-        hostname: "cloudflare-service-unavailable-pass",
+        success: false,
+        error_codes: [`http-status-${response.status}`],
+        message: "Security verification service unavailable. Please try again in a moment.",
       }
     }
 
     const data: any = await response.json()
-    console.log("[TURNSTILE SITEVERIFY RESPONSE]", JSON.stringify(data))
 
     if (data.success === true) {
       return {
@@ -116,37 +111,14 @@ export async function verifyTurnstileToken(
 
     const errorCodes: string[] = Array.isArray(data["error-codes"]) ? data["error-codes"] : []
 
-    // If Cloudflare rejects because of "hostname-mismatch":
-    // The user genuinely completed the challenge, but the domain (e.g. www.academyio.com vs academyio.com)
-    // was not in the whitelist. If hostname belongs to AcademyIO, allow it!
-    if (errorCodes.includes("hostname-mismatch")) {
-      const hostname = data.hostname || ""
-      if (
-        hostname.includes("academyio.com") ||
-        hostname.includes("localhost") ||
-        hostname.includes("vercel.app")
-      ) {
-        console.warn(`[TURNSTILE WARNING] Hostname mismatch for ${hostname}, but domain is recognized. Allowing legitimate user.`)
-        return {
-          success: true,
-          challenge_ts: data.challenge_ts,
-          hostname: data.hostname,
-        }
-      }
-    }
-
-    // If Cloudflare rejects because of "invalid-input-secret":
-    // This is a SERVER-SIDE configuration mismatch (secret key in Render doesn't match sitekey).
-    // The user DID solve the challenge! We log a critical error for the admin, but don't punish the user!
     if (errorCodes.includes("invalid-input-secret") || errorCodes.includes("missing-input-secret")) {
       console.error(
-        "[CRITICAL SECURITY WARNING] TURNSTILE_SECRET_KEY in backend does not match Cloudflare Sitekey! Cloudflare returned invalid-input-secret."
+        "[CRITICAL SECURITY WARNING] TURNSTILE_SECRET_KEY in backend is invalid or misconfigured."
       )
-      // Allow user through so customers aren't locked out of enrollment due to bad env vars
       return {
-        success: true,
-        challenge_ts: new Date().toISOString(),
-        hostname: "config-error-bypass",
+        success: false,
+        error_codes: errorCodes,
+        message: "Security verification configuration error. Please contact support.",
       }
     }
 
@@ -165,19 +137,18 @@ export async function verifyTurnstileToken(
   } catch (error: any) {
     if (error.name === "AbortError") {
       console.error("[TURNSTILE TIMEOUT] Verification request timed out after 8s")
-      // On timeout, fail-open to not block paying customers
       return {
-        success: true,
-        challenge_ts: new Date().toISOString(),
-        hostname: "timeout-bypass",
+        success: false,
+        error_codes: ["verification-timeout"],
+        message: "Security verification timed out. Please try again.",
       }
     }
 
-    console.error("[TURNSTILE ERROR] Verification exception:", error)
+    console.error("[TURNSTILE ERROR] Verification exception:", error?.message || "Unknown error")
     return {
-      success: true,
-      challenge_ts: new Date().toISOString(),
-      hostname: "exception-bypass",
+      success: false,
+      error_codes: ["verification-exception"],
+      message: "Security verification failed. Please try again.",
     }
   }
 }

@@ -1,18 +1,15 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Pool } from "pg"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
+import { getSharedPool } from "../../../../../utils/db-pool"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-  const customerId = (req as any).auth_context?.actor_id || (req.query.customer_id as string)
+  const customerId = (req as any).auth_context?.actor_id
   const { id } = req.params
 
   if (!customerId) {
     return res.status(401).json({ message: "Authentication required" })
   }
 
+  const pool = getSharedPool()
   const client = await pool.connect()
   try {
     const certRes = await client.query(

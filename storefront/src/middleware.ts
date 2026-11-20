@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { DEFAULT_REGION } from "./lib/config-env"
 
 const ALLOWED_REGION = (DEFAULT_REGION || "us").toLowerCase()
+const CACHE_COOKIE_OPTIONS = {
+  maxAge: 60 * 60 * 24,
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+}
 
 /**
  * High-performance Middleware:
@@ -32,9 +39,7 @@ export async function middleware(request: NextRequest) {
       const checkoutUrl = new URL(`/${ALLOWED_REGION}/checkout`, request.url)
       const res = NextResponse.redirect(checkoutUrl, 307)
       if (!request.cookies.get("_medusa_cache_id")) {
-        res.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
-          maxAge: 60 * 60 * 24,
-        })
+        res.cookies.set("_medusa_cache_id", crypto.randomUUID(), CACHE_COOKIE_OPTIONS)
       }
       return res
     }
@@ -42,9 +47,7 @@ export async function middleware(request: NextRequest) {
     // Fast-path: /us route is valid, proceed immediately
     const res = NextResponse.next()
     if (!request.cookies.get("_medusa_cache_id")) {
-      res.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
-        maxAge: 60 * 60 * 24,
-      })
+      res.cookies.set("_medusa_cache_id", crypto.randomUUID(), CACHE_COOKIE_OPTIONS)
     }
     return res
   }
@@ -60,9 +63,7 @@ export async function middleware(request: NextRequest) {
 
     const res = NextResponse.redirect(targetUrl, 308)
     if (!request.cookies.get("_medusa_cache_id")) {
-      res.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
-        maxAge: 60 * 60 * 24,
-      })
+      res.cookies.set("_medusa_cache_id", crypto.randomUUID(), CACHE_COOKIE_OPTIONS)
     }
     return res
   }
@@ -74,9 +75,7 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.redirect(redirectUrl, 308)
   if (!request.cookies.get("_medusa_cache_id")) {
-    response.cookies.set("_medusa_cache_id", crypto.randomUUID(), {
-      maxAge: 60 * 60 * 24,
-    })
+    response.cookies.set("_medusa_cache_id", crypto.randomUUID(), CACHE_COOKIE_OPTIONS)
   }
 
   return response

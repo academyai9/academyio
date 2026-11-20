@@ -61,17 +61,19 @@ createdb academyio_medusa
 ```
 
 ### 3. Environment Variable Configuration
-The repository includes pre-configured environment files. If configuring manually:
+Copy the example templates (`backend/.env.template` -> `backend/.env`, `storefront/.env.template` -> `storefront/.env.local`) and fill in your own secrets (never commit `.env` files to Git):
 
 **Backend (`backend/.env`):**
 ```bash
 PORT=9000
-DATABASE_URL=postgres://<username>@127.0.0.1:5432/academyio_medusa
+DATABASE_URL=postgres://<username>:<password>@127.0.0.1:5432/academyio_medusa
 STORE_CORS=http://localhost:8000,http://localhost:3000
 ADMIN_CORS=http://localhost:5173,http://localhost:9000,http://localhost:8000
 AUTH_CORS=http://localhost:5173,http://localhost:9000,http://localhost:8000
-JWT_SECRET=supersecretwebinarplatformjwtkey12345
-COOKIE_SECRET=supersecretwebinarplatformcookiekey12345
+JWT_SECRET=<generate-with-openssl-rand-hex-32>
+COOKIE_SECRET=<generate-with-openssl-rand-hex-32>
+PAYMENT_ENCRYPTION_KEY=<generate-with-openssl-rand-hex-32>
+TURNSTILE_SECRET_KEY=<your-cloudflare-turnstile-secret-key>
 MEDUSA_DISABLE_TELEMETRY=1
 ```
 
@@ -79,10 +81,10 @@ MEDUSA_DISABLE_TELEMETRY=1
 ```bash
 MEDUSA_BACKEND_URL=http://localhost:9000
 NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://localhost:9000
-NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_af1c9c73f3aa243796e175d5e7f8b11e263d4627024d732fa98641cd22d3b978
+NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=<your-medusa-publishable-key>
 NEXT_PUBLIC_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_DEFAULT_REGION=us
-REVALIDATE_SECRET=supersecret
+REVALIDATE_SECRET=<generate-with-openssl-rand-hex-32>
 ```
 
 ### 4. Install Dependencies
@@ -114,10 +116,10 @@ node ./node_modules/@medusajs/cli/cli.js exec ./src/scripts/seed-webinars.ts
 ```
 
 ### 7. Create Super Admin User
-Create your administrative account to access the Medusa Admin portal:
+Create your administrative account to access the Medusa Admin portal using a strong, unique password:
 ```bash
 cd backend
-node ./node_modules/@medusajs/cli/cli.js user -e admin@academyio.com -p "SuperAdmin2026!"
+node ./node_modules/@medusajs/cli/cli.js user -e <admin-email> -p "<strong-unique-password>"
 ```
 
 ---
@@ -132,9 +134,7 @@ cd backend
 npm run dev
 ```
 - **Backend API**: `http://localhost:9000`
-- **Medusa Admin Portal**: `http://localhost:9000/app`
-  - **Login**: `admin@academyio.com`
-  - **Password**: `SuperAdmin2026!`
+- **Medusa Admin Portal**: `http://localhost:9000/webapp` (sign in with the administrator credentials you created in step 7)
 
 ### Terminal 2: Next.js Storefront
 ```bash
@@ -147,12 +147,12 @@ npm run start
 
 ---
 
-## Pre-Seeded Credentials for Quick Evaluation
+## Portal Endpoints
 
-| Portal | URL | Username / Email | Password | Role / Access |
-|---|---|---|---|---|
-| **Medusa Admin** | `http://localhost:9000/app` | `admin@academyio.com` | `SuperAdmin2026!` | Super Administrator |
-| **Customer Portal** | `http://localhost:8000/us/login` | `customer@academyio.com` | `Password123!` | Verified Customer with Pre-Purchased S Corp Bundle & GAAP Recording |
+| Portal | Local URL | Access |
+|---|---|---|
+| **Medusa Admin** | `http://localhost:9000/webapp` | Administrator account created via CLI |
+| **Customer Portal** | `http://localhost:8000/us/login` | Register a customer account via `/us/register` |
 
 ---
 
