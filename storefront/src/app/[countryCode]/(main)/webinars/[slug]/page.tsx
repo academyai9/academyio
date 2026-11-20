@@ -1,5 +1,7 @@
 import React from "react"
+import { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { getBaseURL } from "@lib/util/env"
 import Link from "next/link"
 import {
   Calendar,
@@ -24,6 +26,43 @@ import WebinarDetailsTabs from "@/components/webinars/WebinarDetailsTabs"
 import WebinarPromotionalBanner from "@/components/promotions/WebinarPromotionalBanner"
 import WebinarQuickNav from "@/components/webinars/WebinarQuickNav"
 import WebinarStickyBottomBar from "@/components/webinars/WebinarStickyBottomBar"
+
+export async function generateMetadata(props: {
+  params: Promise<{ countryCode: string; slug: string }>
+}): Promise<Metadata> {
+  const { countryCode, slug } = await props.params
+  const webinar = await getWebinarBySlug(slug).catch(() => null)
+
+  if (!webinar) {
+    return {
+      title: "Webinar Not Found | AcademyIO",
+      robots: { index: false, follow: false },
+    }
+  }
+
+  const baseUrl = getBaseURL().replace(/\/$/, "")
+  const canonicalUrl = `${baseUrl}/${countryCode}/webinars/${webinar.slug}`
+  const title = webinar.seo_title || `${webinar.title} | AcademyIO CPE Webinar`
+  const description =
+    webinar.seo_description ||
+    webinar.short_description ||
+    `Earn ${webinar.cpe_credits || 2} CPE credits with ${webinar.speaker_name} on AcademyIO.`
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      images: webinar.featured_image ? [{ url: webinar.featured_image, alt: webinar.title }] : undefined,
+    },
+  }
+}
 
 export default async function WebinarDetailsPage(props: {
   params: Promise<{ countryCode: string; slug: string }>

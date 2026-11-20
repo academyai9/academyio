@@ -20,6 +20,7 @@ import {
   ListChecks,
 } from "lucide-react"
 import WebinarCreditsAndInfo from "./WebinarCreditsAndInfo"
+import { sanitizeHtml } from "@lib/util/sanitize-html"
 
 export type WebinarTabType = "overview" | "faculty" | "credits"
 
@@ -192,9 +193,10 @@ export default function WebinarDetailsTabs({
               <div
                 className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed space-y-3 pt-1"
                 dangerouslySetInnerHTML={{
-                  __html:
+                  __html: sanitizeHtml(
                     webinar.description ||
-                    "<p>Full program description available.</p>",
+                      "<p>Full program description available.</p>"
+                  ),
                 }}
               />
             </div>

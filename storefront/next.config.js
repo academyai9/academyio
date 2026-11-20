@@ -24,16 +24,20 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
-      {
-        protocol: "http",
-        hostname: "localhost",
-      },
+      ...(process.env.NODE_ENV !== "production"
+        ? [
+            {
+              protocol: "http",
+              hostname: "localhost",
+            },
+          ]
+        : []),
       {
         protocol: "https",
         hostname: "images.unsplash.com",
@@ -87,8 +91,20 @@ const nextConfig = {
             value: "SAMEORIGIN",
           },
           {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net https://snap.licdn.com https://www.clarity.ms",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https: wss:",
+              "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://www.youtube.com https://player.vimeo.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'self'",
+            ].join("; "),
           },
           {
             key: "Referrer-Policy",
