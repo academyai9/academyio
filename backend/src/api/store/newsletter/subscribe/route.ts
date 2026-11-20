@@ -40,8 +40,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       null
     const userAgent = (req.headers["user-agent"] as string) || null
 
-    // 4. Verify Turnstile CAPTCHA if supplied
-    if (captchaToken) {
+    // 4. Verify Turnstile CAPTCHA (required in production when configured, or whenever supplied)
+    if (captchaToken || (process.env.NODE_ENV === "production" && process.env.TURNSTILE_SECRET_KEY)) {
       const captchaRes = await verifyTurnstileToken(captchaToken, clientIp)
       if (!captchaRes.success) {
         return res.status(403).json({

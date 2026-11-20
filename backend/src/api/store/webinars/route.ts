@@ -55,7 +55,15 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   // Compute live timezone-aware status for each webinar
   let enhanced = webinars.map((w: any) => {
     const computed = computeWebinarStatus(w)
-    const { live_stream_url, live_instructions, recording_url, transcript_content, ...publicData } = w
+    const {
+      live_stream_url,
+      live_instructions,
+      recording_url,
+      transcript_content,
+      transcript_file_url,
+      resources,
+      ...publicData
+    } = w
 
     const webinarMappings = allMappings.filter(
       (m: any) => m.webinar_id === w.id && m.is_enabled !== false

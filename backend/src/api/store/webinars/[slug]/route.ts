@@ -203,18 +203,23 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     // continue if table not yet queried
   }
 
-  // Sanitize: do not expose private links on the public product page
+  // Sanitize: never expose private links, transcript files, or paid resource URLs on public pages
   const {
     live_stream_url,
     live_instructions,
     recording_url,
     transcript_content,
+    transcript_file_url,
+    resources,
     ...publicWebinar
   } = webinar as any
 
   res.json({
     webinar: {
       ...publicWebinar,
+      public_resources_count: Array.isArray(resources)
+        ? resources.filter((r: any) => r.is_published !== false).length
+        : 0,
       topics_covered: publicWebinar.topics_covered || publicWebinar.metadata?.topics_covered || [],
       is_upcoming: computed.is_upcoming,
       is_ondemand: computed.is_ondemand,

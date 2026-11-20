@@ -263,9 +263,15 @@ export class S3StorageService {
 
     const randomSuffix = crypto.randomBytes(6).toString("hex")
     const timestamp = Date.now()
-    const cleanExt = ext.replace(".", "")
+    const cleanExt = ext.replace(".", "").replace(/[^a-z0-9]/g, "")
+    const safeWebinarId = String(params.webinarId || "").replace(/[^a-zA-Z0-9_-]/g, "")
+    const safeMaterialType = String(params.materialType || "").replace(/[^a-zA-Z0-9_-]/g, "")
 
-    return `webinars/${params.webinarId}/${params.materialType}/${timestamp}-${randomSuffix}-${sanitizedBase}.${cleanExt}`
+    if (!safeWebinarId || !safeMaterialType || !cleanExt) {
+      throw new Error("Invalid webinarId, materialType, or file extension.")
+    }
+
+    return `webinars/${safeWebinarId}/${safeMaterialType}/${timestamp}-${randomSuffix}-${sanitizedBase}.${cleanExt}`
   }
 
   /**
@@ -386,7 +392,33 @@ export class S3StorageService {
   }
 
   /**
-   * Delete object from Amazon S3
+   * Resolves a key inside localFallbackDir while strictly preventing path traversal.
+   */
+  public static resolveSafeLocalPath(s3Key: string): string {
+    if (!s3Key || typeof s3Key !== "string" || s3Key.includes("\0")) {
+      throw new Error("Invalid storage object key.")
+    }
+    const baseDir = path.resolve(this.localFallbackDir)
+    const resolved = path.resolve(baseDir, s3Key)
+    if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
+      throw new Error("Path traversal detected in storage object key.")
+    }
+    return resolved
+  }
+
+  private static getSigningSecret(): string {
+    const secret = process.env.JWT_SECRET?.trim() || process.env.COOKIE_SECRET?.trim()
+    if (!secret) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("[SECURITY] JWT_SECRET or COOKIE_SECRET is required for signed storage tokens.")
+      }
+      return "dev-only-local-s3-signing-secret"
+    }
+    return secret
+  }
+
+  /**
+   * Delete an object from S3 or local fallback
    */
   public static async deleteS3Object(s3Key: string): Promise<boolean> {
     if (!s3Key) return false
@@ -401,8 +433,7 @@ export class S3StorageService {
           })
         )
       } else {
-        // Delete from local fallback if exists
-        const localPath = path.resolve(this.localFallbackDir, s3Key)
+        const localPath = this.resolveSafeLocalPath(s3Key)
         if (fs.existsSync(localPath)) {
           fs.unlinkSync(localPath)
         }
@@ -431,7 +462,7 @@ export class S3StorageService {
         )
         return true
       } else {
-        const localPath = path.resolve(this.localFallbackDir, s3Key)
+        const localPath = this.resolveSafeLocalPath(s3Key)
         return fs.existsSync(localPath)
       }
     } catch {
@@ -448,7 +479,7 @@ export class S3StorageService {
     mimeType: string,
     expiresInSeconds: number
   ): string {
-    const secret = process.env.JWT_SECRET || process.env.COOKIE_SECRET || "academyio_s3_secret_2026"
+    const secret = this.getSigningSecret()
     const exp = Math.floor(Date.now() / 1000) + expiresInSeconds
     const payload = `${key}|${fileName}|${mimeType}|${exp}`
     const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex")
@@ -456,15 +487,15 @@ export class S3StorageService {
   }
 
   /**
-   * Helper: Verify a secure HMAC-SHA256 signed token for local development proxy
+   * Helper: Verify a secure HMAC-SHA256 signed token using constant-time comparison
    */
   public static verifyLocalSignedToken(tokenString: string): { valid: boolean; key?: string; fileName?: string; mimeType?: string } {
     try {
-      const secret = process.env.JWT_SECRET || process.env.COOKIE_SECRET || "academyio_s3_secret_2026"
+      const secret = this.getSigningSecret()
       const decoded = JSON.parse(Buffer.from(tokenString, "base64url").toString("utf8"))
       const { key, fileName, mimeType, exp, signature } = decoded
 
-      if (Date.now() / 1000 > exp) {
+      if (!key || !exp || typeof signature !== "string" || Date.now() / 1000 > exp) {
         return { valid: false }
       }
 
@@ -473,9 +504,14 @@ export class S3StorageService {
         .update(`${key}|${fileName}|${mimeType}|${exp}`)
         .digest("hex")
 
-      if (signature !== expected) {
+      const sigBuf = Buffer.from(signature, "utf8")
+      const expBuf = Buffer.from(expected, "utf8")
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
         return { valid: false }
       }
+
+      // Ensure key cannot traverse outside localFallbackDir
+      this.resolveSafeLocalPath(key)
 
       return { valid: true, key, fileName, mimeType }
     } catch {
@@ -487,7 +523,7 @@ export class S3StorageService {
    * Save a file stream or buffer to local fallback storage (for dev testing)
    */
   public static saveLocalFile(s3Key: string, buffer: Buffer): void {
-    const fullPath = path.resolve(this.localFallbackDir, s3Key)
+    const fullPath = this.resolveSafeLocalPath(s3Key)
     const dir = path.dirname(fullPath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
@@ -499,7 +535,7 @@ export class S3StorageService {
    * Read a file buffer from local fallback storage (for dev testing)
    */
   public static getLocalFileStream(s3Key: string): fs.ReadStream | null {
-    const fullPath = path.resolve(this.localFallbackDir, s3Key)
+    const fullPath = this.resolveSafeLocalPath(s3Key)
     if (!fs.existsSync(fullPath)) return null
     return fs.createReadStream(fullPath)
   }

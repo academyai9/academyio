@@ -63,7 +63,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   // Auto-resolve customer by email if customer_id not supplied directly
   if (!customerId && customerEmail) {
     const custRes = await pgConnection.raw(
-      "SELECT id, email FROM customer WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1",
+      "SELECT id, email FROM customer WHERE LOWER(email) = LOWER(?) AND deleted_at IS NULL LIMIT 1",
       [customerEmail]
     )
     if (custRes.rows && custRes.rows.length > 0) {

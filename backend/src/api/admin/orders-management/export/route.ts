@@ -196,34 +196,41 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       const attentionNotes = (o.incidents || []).map((inc: any) => inc.description).join("; ")
       const hasAttention = accessStatus === "Missing Entitlement" || (o.incidents || []).length > 0
 
+      const csvSafe = (val: unknown): string => {
+        const str = String(val ?? "")
+        const neutralized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str
+        return `"${neutralized.replace(/"/g, '""')}"`
+      }
+
       return [
-        `"${o.id}"`,
-        `"#${o.display_id}"`,
-        `"${o.order_date}"`,
-        `"${o.order_time}"`,
-        `"${o.order_utc_time}"`,
-        `"${customerName.replace(/"/g, '""')}"`,
-        `"${o.customer_email || ""}"`,
-        `"${o.customer_phone || ""}"`,
-        `"${o.order_status}"`,
-        `"${paymentStatus}"`,
+        csvSafe(o.id),
+        csvSafe(`#${o.display_id}`),
+        csvSafe(o.order_date),
+        csvSafe(o.order_time),
+        csvSafe(o.order_utc_time),
+        csvSafe(customerName),
+        csvSafe(o.customer_email || ""),
+        csvSafe(o.customer_phone || ""),
+        csvSafe(o.order_status),
+        csvSafe(paymentStatus),
         totalNum.toFixed(2),
         paidNum.toFixed(2),
         refundedNum.toFixed(2),
-        `"${(o.currency_code || "USD").toUpperCase()}"`,
-        `"${itemsSummary.replace(/"/g, '""')}"`,
+        csvSafe((o.currency_code || "USD").toUpperCase()),
+        csvSafe(itemsSummary),
         totalUnits,
-        `"${accessStatus}"`,
+        csvSafe(accessStatus),
         hasAttention ? "YES" : "NO",
-        `"${attentionNotes.replace(/"/g, '""')}"`
+        csvSafe(attentionNotes)
       ].join(",")
     })
 
-    const dateLabel = specificDate || (fromDate && toDate ? `${fromDate}_to_${toDate}` : dateRange !== "all" ? dateRange : new Date().toISOString().split("T")[0])
+    const rawDateLabel = specificDate || (fromDate && toDate ? `${fromDate}_to_${toDate}` : dateRange !== "all" ? dateRange : new Date().toISOString().split("T")[0])
+    const safeDateLabel = String(rawDateLabel).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64)
     const csvContent = "\uFEFF" + [csvHeaders.join(","), ...csvRows].join("\r\n")
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8")
-    res.setHeader("Content-Disposition", `attachment; filename="academyio_orders_${dateLabel}.csv"`)
+    res.setHeader("Content-Disposition", `attachment; filename="academyio_orders_${safeDateLabel}.csv"`)
     return res.status(200).send(csvContent)
   } catch (error: any) {
     console.error("[Orders Export Error]:", error)

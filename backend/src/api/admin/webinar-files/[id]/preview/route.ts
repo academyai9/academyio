@@ -8,7 +8,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const { id } = req.params
 
     const fileRes = await pgConnection.raw(
-      "SELECT * FROM webinar_file WHERE id = $1 AND deleted_at IS NULL",
+      "SELECT * FROM webinar_file WHERE id = ? AND deleted_at IS NULL",
       [id]
     )
 

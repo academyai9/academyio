@@ -1,5 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { encryptSecret } from "../../../../utils/secret-crypto"
 import crypto from "crypto"
 import { maskKey, isMaskedValue } from "../../../../utils/payment-credentials"
 
@@ -167,11 +168,11 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         newIsActive,
         newEnvironment,
         newLivePub,
-        newLiveSecret,
-        newLiveWebhook,
+        encryptSecret(newLiveSecret),
+        encryptSecret(newLiveWebhook),
         newTestPub,
-        newTestSecret,
-        newTestWebhook,
+        encryptSecret(newTestSecret),
+        encryptSecret(newTestWebhook),
         newUnderlyingGateway,
         newVerificationMode,
         newSupportedCards,

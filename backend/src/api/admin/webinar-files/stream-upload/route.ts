@@ -29,9 +29,19 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     } else if (typeof (req as any).rawBody === "string" && (req as any).rawBody.length > 0) {
       fileBuffer = Buffer.from((req as any).rawBody)
     } else if (req.readable) {
+      const MAX_STREAM_BYTES = 100 * 1024 * 1024 // 100MB safety cap to prevent OOM DoS
       const chunks: Buffer[] = []
+      let totalBytes = 0
       await new Promise<void>((resolve, reject) => {
-        req.on("data", (chunk: Buffer) => chunks.push(chunk))
+        req.on("data", (chunk: Buffer) => {
+          totalBytes += chunk.length
+          if (totalBytes > MAX_STREAM_BYTES) {
+            req.destroy()
+            reject(new Error("Upload exceeds maximum allowed stream size (100MB)."))
+            return
+          }
+          chunks.push(chunk)
+        })
         req.on("end", () => resolve())
         req.on("error", (err: Error) => reject(err))
       })
