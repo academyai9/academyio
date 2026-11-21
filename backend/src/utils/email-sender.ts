@@ -1,5 +1,11 @@
 import crypto from "crypto"
 
+export interface EmailAttachment {
+  filename: string
+  content: Buffer | string
+  contentType?: string
+}
+
 export interface SendEmailOptions {
   to: string
   toName?: string | null
@@ -7,6 +13,7 @@ export interface SendEmailOptions {
   html: string
   text: string
   replyTo?: string
+  attachments?: EmailAttachment[]
 }
 
 export interface SendEmailResult {
@@ -84,20 +91,31 @@ export class EmailSender {
       throw new Error("RESEND_API_KEY environment variable is not defined.")
     }
 
+    const resendBody: Record<string, any> = {
+      from,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      reply_to: replyTo,
+    }
+
+    if (options.attachments && options.attachments.length > 0) {
+      resendBody.attachments = options.attachments.map((att) => ({
+        filename: att.filename,
+        content: Buffer.isBuffer(att.content)
+          ? att.content.toString("base64")
+          : Buffer.from(att.content).toString("base64"),
+      }))
+    }
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        reply_to: replyTo,
-      }),
+      body: JSON.stringify(resendBody),
     })
 
     const data = await res.json().catch(() => ({}))
@@ -127,7 +145,7 @@ export class EmailSender {
       throw new Error("SENDGRID_API_KEY environment variable is not defined.")
     }
 
-    const payload = {
+    const payload: Record<string, any> = {
       personalizations: [
         {
           to: [{ email: options.to, name: options.toName || undefined }],
@@ -140,6 +158,17 @@ export class EmailSender {
         { type: "text/plain", value: options.text },
         { type: "text/html", value: options.html },
       ],
+    }
+
+    if (options.attachments && options.attachments.length > 0) {
+      payload.attachments = options.attachments.map((att) => ({
+        filename: att.filename,
+        type: att.contentType || "application/pdf",
+        disposition: "attachment",
+        content: Buffer.isBuffer(att.content)
+          ? att.content.toString("base64")
+          : Buffer.from(att.content).toString("base64"),
+      }))
     }
 
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -200,6 +229,14 @@ export class EmailSender {
       subject: options.subject,
       text: options.text,
       html: options.html,
+      attachments:
+        options.attachments && options.attachments.length > 0
+          ? options.attachments.map((att) => ({
+              filename: att.filename,
+              content: att.content,
+              contentType: att.contentType || "application/pdf",
+            }))
+          : undefined,
     })
 
     return {

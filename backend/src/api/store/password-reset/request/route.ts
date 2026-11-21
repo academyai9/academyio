@@ -36,6 +36,19 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const pool = getSharedPool()
   const client = await pool.connect()
   try {
+    // Ensure customer_password_reset table exists on Neon PostgreSQL
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customer_password_reset (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(() => null)
+
     // 1. Check if customer with an active login identity exists
     const custRes = await client.query(
       `SELECT c.id, c.email, c.first_name, c.last_name, ai.id AS auth_id
@@ -80,7 +93,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     ).replace(/\/$/, "")
     const resetUrl = `${storefrontUrl}/us/reset-password?token=${token}&email=${encodeURIComponent(rawEmail)}`
 
-    await EmailSender.send({
+    const sendResult = await EmailSender.send({
       to: rawEmail,
       toName: customer.first_name || undefined,
       subject: "Reset Your AcademyIO Password",
@@ -96,9 +109,15 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
         </div>
       `,
       text: `Hello ${customer.first_name || "Member"},\n\nWe received a request to reset your AcademyIO password. Use the link below within 1 hour:\n${resetUrl}\n\nIf you did not request this, please ignore this email.`,
-    }).catch((mailErr) => {
-      console.error("[PASSWORD RESET] Failed to dispatch reset email:", mailErr?.message || mailErr)
     })
+
+    if (!sendResult.success) {
+      console.error("[PASSWORD RESET] Failed to dispatch reset email:", sendResult.error)
+    } else if (sendResult.provider === "console") {
+      console.warn(
+        "[PASSWORD RESET WARNING] EmailSender is in 'console' mode — configure RESEND_API_KEY, SENDGRID_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS in Render environment variables to deliver live emails."
+      )
+    }
 
     // Never return reset_token, reset_link, or account-existence flags in the HTTP response
     return res.status(200).json({

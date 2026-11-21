@@ -1,15 +1,12 @@
-import { Pool } from "pg"
 import crypto from "crypto"
+import { getSharedPool } from "../../utils/db-pool"
 import { EmailSender } from "../../utils/email-sender"
+import { generateInvoicePdf } from "../../utils/generate-invoice-pdf"
 import {
   generateOrderConfirmationEmail,
   OrderConfirmationEmailData,
   OrderEmailItem,
 } from "../../utils/order-confirmation-template"
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://sonusaini@127.0.0.1:5432/academyio_medusa",
-})
 
 export interface OrderConfirmationResult {
   success: boolean
@@ -35,9 +32,33 @@ export class OrderConfirmationService {
       adminEmail?: string
     }
   ): Promise<OrderConfirmationResult> {
+    const pool = getSharedPool()
     const client = await pool.connect()
 
     try {
+      // Ensure notification audit table exists on Neon PostgreSQL
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS order_email_notification (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL,
+          notification_type TEXT NOT NULL DEFAULT 'order_confirmation',
+          recipient_email TEXT NOT NULL,
+          recipient_name TEXT,
+          subject TEXT,
+          body_html TEXT,
+          body_text TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          attempt_count INTEGER NOT NULL DEFAULT 0,
+          provider TEXT,
+          provider_message_id TEXT,
+          error_message TEXT,
+          sent_at TIMESTAMPTZ,
+          last_attempt_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `).catch(() => null)
+
       // 1. Check idempotency (prevent duplicate confirmation emails unless forceResend is requested)
       const existingNotifRes = await client.query(
         `SELECT id, status, attempt_count, recipient_email, provider_message_id, sent_at
@@ -112,7 +133,7 @@ export class OrderConfirmationService {
             const mapRes = await client.query(
               `SELECT m.webinar_id, m.option_type, 
                       w.title as web_title, w.speaker_name, w.cpe_credits,
-                      w.event_date, w.event_time, w.time_zone
+                      w.event_date, w.start_time, w.timezone
                FROM webinar_variant_mapping m
                LEFT JOIN webinar w ON w.id = m.webinar_id
                WHERE m.variant_id = $1
@@ -125,8 +146,8 @@ export class OrderConfirmationService {
               if (w.speaker_name) speakerName = w.speaker_name
               if (w.cpe_credits) cpeCredits = Number(w.cpe_credits)
               if (w.option_type) optionType = w.option_type.toUpperCase()
-              if (w.time_zone) timezone = w.time_zone
-              if (w.event_time) eventTime = w.event_time
+              if (w.timezone) timezone = w.timezone
+              if (w.start_time) eventTime = w.start_time
 
               if (w.event_date) {
                 eventDate = new Date(w.event_date).toLocaleDateString("en-US", {
@@ -223,12 +244,16 @@ export class OrderConfirmationService {
         paymentStatus = "PAID"
       }
 
-      // Customer recipient info
+      // Customer recipient info (prefer registered customer email ID)
       const recipientEmail =
         options?.customRecipient ||
-        order.email ||
         order.customer_email ||
-        "customer@academyio.com"
+        order.email ||
+        ""
+
+      if (!recipientEmail) {
+        throw new Error(`No recipient email found for order '${order.id}'.`)
+      }
 
       const customerName =
         [order.first_name, order.last_name].filter(Boolean).join(" ") ||
@@ -248,10 +273,15 @@ export class OrderConfirmationService {
       const rawOrderTotal = typeof order.total === "number" ? order.total : 149
       const totalAmount = rawOrderTotal > 1000 ? rawOrderTotal / 100 : rawOrderTotal
       const currency = (order.currency_code || "usd").toUpperCase()
-      const frontendUrl = process.env.STORE_FRONTEND_URL || "http://localhost:8000"
+      const frontendUrl = (
+        process.env.STORE_FRONTEND_URL ||
+        process.env.STOREFRONT_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        "https://www.academyio.com"
+      ).replace(/\/$/, "")
       const supportEmail = process.env.SUPPORT_EMAIL || "support@academyio.com"
 
-      // 5. Build Email Content
+      // 5. Build Email Content & Attach Official Invoice PDF
       const emailPayload: OrderConfirmationEmailData = {
         orderId: order.id,
         displayId,
@@ -273,14 +303,62 @@ export class OrderConfirmationService {
 
       const { subject, html, text } = generateOrderConfirmationEmail(emailPayload)
 
-      // 6. Send the Email
+      // Generate Invoice PDF attachment
+      let invoiceAttachment: { filename: string; content: Buffer; contentType: string } | null = null
+      try {
+        const pdfBytes = await generateInvoicePdf({
+          orderId: order.id,
+          displayId,
+          orderDate: new Date(order.created_at || Date.now()).toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }),
+          customerName,
+          customerEmail: recipientEmail,
+          companyName: order.company_name || null,
+          items: emailItems.map((it) => ({
+            title: it.title,
+            variantTitle: it.variantTitle,
+            speaker: it.speakerName,
+            cpeCredits: it.cpeCredits,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            totalPrice: it.totalPrice,
+            currency: it.currency,
+          })),
+          subtotal: totalAmount,
+          taxTotal: 0,
+          discountTotal: 0,
+          total: totalAmount,
+          currency,
+          paymentStatus: isPaid ? "PAID" : paymentStatus,
+          paymentMethod,
+        })
+        invoiceAttachment = {
+          filename: `AcademyIO-Invoice-${displayId}.pdf`,
+          content: Buffer.from(pdfBytes),
+          contentType: "application/pdf",
+        }
+      } catch (pdfErr: any) {
+        console.warn(`[OrderConfirmationService] Invoice PDF generation skipped for ${order.id}:`, pdfErr?.message || pdfErr)
+      }
+
+      // 6. Send the Order Invoice Email
       const sendResult = await EmailSender.send({
         to: recipientEmail,
         toName: customerName,
         subject,
         html,
         text,
+        attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
       })
+
+      if (sendResult.provider === "console") {
+        console.warn(
+          "[EMAIL CONFIG WARNING] No live email provider configured (set RESEND_API_KEY, SENDGRID_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS in Render env vars)."
+        )
+      }
 
       const notifId = existingNotif?.id || `oen_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`
       const status = sendResult.success ? "sent" : "failed"
@@ -370,6 +448,7 @@ export class OrderConfirmationService {
    * Get notification record for an order
    */
   static async getNotificationForOrder(orderId: string) {
+    const pool = getSharedPool()
     const client = await pool.connect()
     try {
       const res = await client.query(
