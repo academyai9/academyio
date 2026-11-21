@@ -22,14 +22,29 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   }
 
   const webinarId = resource.webinar.id
-  const requiredType = resource.access_type === "transcript" ? "transcript" : "pdf"
+  let hasAccess = false
 
-  // 2. Verify customer entitlement
-  const hasAccess = await webinarService.checkCustomerAccess(customerId, webinarId, requiredType as any)
+  if (resource.access_type === "transcript") {
+    hasAccess = await webinarService.checkCustomerAccess(customerId, webinarId, "transcript")
+  } else {
+    // Conference Materials & Downloads are included for any customer who purchased this webinar
+    const activeEntitlements = await webinarService.listCustomerEntitlements({
+      customer_id: customerId,
+      webinar: { id: webinarId },
+      status: "active",
+    })
+    const now = new Date()
+    hasAccess = (activeEntitlements || []).some(
+      (e: any) => !e.expires_at || new Date(e.expires_at) > now
+    )
+    if (!hasAccess) {
+      hasAccess = await webinarService.checkCustomerAccess(customerId, webinarId, "pdf")
+    }
+  }
 
   if (!hasAccess) {
     return res.status(403).json({
-      message: `Access denied. You do not own a valid ${requiredType.toUpperCase()} entitlement for this webinar.`,
+      message: "Access denied. You do not own a valid enrollment for this webinar's materials.",
     })
   }
 

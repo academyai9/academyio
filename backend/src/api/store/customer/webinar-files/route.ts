@@ -120,14 +120,21 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       if (options.has("bundle") || options.has("all")) return true
       if (f.purchase_option === "all") return true
 
-      const opt = f.purchase_option?.toLowerCase()
-      const mat = f.material_type?.toLowerCase()
+      const opt = (f.purchase_option || "").toLowerCase()
+      const mat = (f.material_type || "").toLowerCase()
 
       if (options.has(opt) || options.has(mat)) return true
 
+      // Conference Materials (PDFs, slides, handouts, worksheets, study guides) uploaded by Super Admin
+      // are available to any customer who purchased this webinar (regardless of live/recording/transcript/bundle option)
+      const isConferenceMaterial = ["pdf", "slides", "handout", "worksheet", "study_guide", "material"].includes(mat)
+      if (isConferenceMaterial && options.size > 0) {
+        return true
+      }
+
       if (
         (options.has("live") || options.has("webinar")) &&
-        (opt === "live" || mat === "slides" || mat === "handout")
+        opt === "live"
       ) {
         return true
       }

@@ -90,9 +90,8 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       item.webinar.transcript_file_url = web.transcript_file_url
       item.webinar.transcript_content = web.transcript_content
     }
-    if (item.access.has_pdf) {
-      item.webinar.resources = (web.resources || []).filter((r: any) => r.is_published)
-    }
+    // Conference Materials & Downloads are included for any purchased webinar when uploaded by Super Admin
+    item.webinar.resources = (web.resources || []).filter((r: any) => r.is_published !== false)
   }
 
   const purchasedWebinars = Array.from(webinarMap.values())
@@ -106,7 +105,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     ).length,
     recordings_count: purchasedWebinars.filter((item) => item.access.has_recording).length,
     transcripts_count: purchasedWebinars.filter((item) => item.access.has_transcript).length,
-    pdf_downloads_count: purchasedWebinars.filter((item) => item.access.has_pdf).length,
+    pdf_downloads_count: purchasedWebinars.reduce(
+      (sum, item) => sum + ((item.webinar.resources || []).length),
+      0
+    ),
   }
 
   res.json({

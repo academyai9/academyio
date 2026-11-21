@@ -348,16 +348,18 @@ export default function CustomerDashboardView({
           }
         })
 
-  // Dynamically collect all PDF resources from customer's purchased webinars
-  const customerResources = pdfWebinars.flatMap((item) =>
-    (item.webinar?.resources || []).map((res: any) => ({
-      id: res.id,
-      title: res.title,
-      course: item.webinar?.title || "Educational Course",
-      size: res.file_size ? `${(res.file_size / 1024 / 1024).toFixed(1)} MB` : "2.4 MB",
-      url: res.file_url || `/store/customer/resources/${res.id}/download`,
-      file_name: res.file_name,
-    }))
+  // Dynamically collect real Conference Materials uploaded by Super Admin for the customer's purchased webinars ONLY
+  const customerResources = purchasedWebinars.flatMap((item) =>
+    (item.webinar?.resources || [])
+      .filter((res: any) => Boolean(res && (res.file_url || res.id)))
+      .map((res: any) => ({
+        id: res.id,
+        title: res.title,
+        course: item.webinar?.title || "Educational Course",
+        size: res.file_size ? `${(res.file_size / 1024 / 1024).toFixed(1)} MB` : "PDF",
+        url: res.file_url || `/store/customer/resources/${res.id}/download`,
+        file_name: res.file_name,
+      }))
   )
 
   const planLimit = initialSubscription?.plan?.webinar_access_limit ?? null
@@ -389,28 +391,8 @@ export default function CustomerDashboardView({
     )
   })
 
-  // Fallback demo resources if no specific resources are attached to the seed items
-  const displayResources =
-    customerResources.length > 0
-      ? customerResources
-      : [
-          {
-            id: "res_fallback_1",
-            title: "Form 7203 Complete Audit & Compliance Checklist.pdf",
-            course: "S Corp Basis Analysis: Form 7203 Preparation",
-            size: "2.4 MB",
-            url: "https://customer-assets.academyio.com/resources/form_7203_compliance_checklist.pdf",
-            file_name: "form_7203_compliance_checklist.pdf",
-          },
-          {
-            id: "res_fallback_2",
-            title: "Shareholder Debt Basis Reconstruction Worksheet.xlsx / PDF",
-            course: "S Corp Basis Analysis: Form 7203 Preparation",
-            size: "1.8 MB",
-            url: "https://customer-assets.academyio.com/resources/shareholder_debt_basis_worksheet.pdf",
-            file_name: "shareholder_debt_basis_worksheet.pdf",
-          },
-        ]
+  // Never show fake/demo Conference Materials — only show real materials uploaded by Super Admin for purchased webinars
+  const displayResources = customerResources
 
   // Dynamically format customer orders into rich entities with webinar details
   const enrichedOrders = React.useMemo(() => {
@@ -431,7 +413,12 @@ export default function CustomerDashboardView({
             })
           : ""
 
-        const isPaid = o.status === "completed" || o.payment_status === "captured" || o.status === "paid" || true
+        const isPaid =
+          o.status === "completed" ||
+          o.payment_status === "captured" ||
+          o.payment_status === "authorized" ||
+          o.status === "paid" ||
+          o.status === "pending"
         const currency = (o.currency_code || "usd").toUpperCase()
         const rawTotal = typeof o.total === "number" ? o.total : 14900
         const totalAmount = rawTotal > 1000 ? rawTotal / 100 : rawTotal
@@ -506,7 +493,26 @@ export default function CustomerDashboardView({
     if (rawEntitlements && rawEntitlements.length > 0) {
       return Array.from(
         rawEntitlements.reduce((acc: Map<string, any>, ent: any) => {
-          const id = ent.order_id || "order_01M4P87WW0T3F781TZWBJVHT2R"
+          const id = ent.order_id || ent.id
+          if (!id) return acc
+          const matchedWeb =
+            purchasedWebinars.find((pw: any) => pw.webinar?.id === ent.webinar_id)?.webinar ||
+            (webinars || []).find((w: any) => w.id === ent.webinar_id)
+          const itemEntry = {
+            id: ent.id,
+            title: matchedWeb?.title || ent.webinar_title || ent.variant_title || "Webinar Enrollment",
+            variantTitle: ent.variant_title || ent.access_type || "Standard Access",
+            quantity: 1,
+            priceFormatted: "Enrolled",
+            thumbnail: matchedWeb?.featured_image || null,
+            speaker: matchedWeb?.speaker_name || "AcademyIO Faculty",
+            cpeCredits: Number(matchedWeb?.cpe_credits || 0),
+            eventDate: matchedWeb?.event_date || null,
+            startTime: matchedWeb?.start_time || "",
+            timezone: matchedWeb?.timezone || "EST",
+            slug: matchedWeb?.slug || "",
+          }
+
           if (!acc.has(id)) {
             acc.set(id, {
               id,
@@ -516,69 +522,27 @@ export default function CustomerDashboardView({
                 day: "numeric",
                 year: "numeric",
               }),
-              time: "2:30 PM",
+              time: "",
               status: "Paid & Authorized",
               isPaid: true,
-              totalFormatted: ent.access_type === "bundle" ? "$249.00 USD" : "$149.00 USD",
-              totalAmount: ent.access_type === "bundle" ? 249 : 149,
+              totalFormatted: "Enrolled",
+              totalAmount: 0,
               currency: "USD",
-              items: [
-                {
-                  id: ent.id || "item_ent_1",
-                  title: ent.webinar_title || ent.variant_title || "S Corp Basis Analysis: Form 7203 Preparation",
-                  variantTitle: ent.variant_title || "Complete All-Access Package",
-                  quantity: 1,
-                  priceFormatted: ent.access_type === "bundle" ? "$249.00 USD" : "$149.00 USD",
-                  thumbnail: null,
-                  speaker: "David M. Richardson, CPA",
-                  cpeCredits: 2.0,
-                  eventDate: "2026-10-24",
-                  startTime: "2:00 PM",
-                  timezone: "EDT",
-                  slug: "s-corp-basis-analysis-form-7203",
-                },
-              ],
-              customerName: `${customer?.first_name || "Valued"} ${customer?.last_name || "Professional"}`,
+              items: [itemEntry],
+              customerName: `${customer?.first_name || ""} ${customer?.last_name || ""}`.trim() || customer?.email || "Member",
               billingEmail: customer?.email || "",
             })
+          } else {
+            acc.get(id).items.push(itemEntry)
           }
           return acc
         }, new Map<string, any>()).values()
       )
     }
 
-    return [
-      {
-        id: "order_01M4P87WW0T3F781TZWBJVHT2R",
-        displayId: "1001",
-        date: "Oct 12, 2026",
-        time: "3:15 PM",
-        status: "Paid & Authorized",
-        isPaid: true,
-        totalFormatted: "$249.00 USD",
-        totalAmount: 249,
-        currency: "USD",
-        items: [
-          {
-            id: "item_demo_1",
-            title: "S Corp Basis Analysis: Form 7203 Preparation",
-            variantTitle: "Live Interactive Broadcast + On-Demand Replay",
-            quantity: 1,
-            priceFormatted: "$249.00 USD",
-            thumbnail: null,
-            speaker: "David M. Richardson, CPA",
-            cpeCredits: 2.0,
-            eventDate: "2026-10-24",
-            startTime: "2:00 PM",
-            timezone: "EDT",
-            slug: "s-corp-basis-analysis-form-7203",
-          },
-        ],
-        customerName: `${customer?.first_name || "Valued"} ${customer?.last_name || "Professional"}`,
-        billingEmail: customer?.email || "",
-      },
-    ]
-  }, [orders, rawEntitlements, webinars, customer])
+    // Never return fake/demo orders for customers who haven't purchased anything
+    return []
+  }, [orders, rawEntitlements, purchasedWebinars, webinars, customer])
 
   // Executive Orders Dashboard Metrics
   const totalOrdersCount = enrichedOrders.length
@@ -588,7 +552,7 @@ export default function CustomerDashboardView({
     0
   )
   const totalCpeCreditsEnrolled = enrichedOrders.reduce(
-    (sum, ord) => sum + (ord.items || []).reduce((iSum: number, item: any) => iSum + (Number(item?.cpeCredits) || 2), 0),
+    (sum, ord) => sum + (ord.items || []).reduce((iSum: number, item: any) => iSum + (Number(item?.cpeCredits) || 0), 0),
     0
   )
 
@@ -1101,9 +1065,7 @@ export default function CustomerDashboardView({
                           f.webinar_id === item.webinar?.id &&
                           (f.material_type === "transcript" || f.purchase_option === "transcript")
                       )
-                      const transcriptUrl =
-                        item.webinar?.transcript_file_url ||
-                        "https://customer-assets.academyio.com/transcripts/s-corp-basis-form-7203-transcript.pdf"
+                      const transcriptUrl = item.webinar?.transcript_file_url || null
 
                       return (
                         <div
@@ -1154,7 +1116,7 @@ export default function CustomerDashboardView({
                                   </>
                                 )}
                               </button>
-                            ) : (
+                            ) : transcriptUrl ? (
                               <a
                                 href={transcriptUrl}
                                 target="_blank"
@@ -1163,7 +1125,7 @@ export default function CustomerDashboardView({
                               >
                                 <Download className="w-3.5 h-3.5" /> Download PDF
                               </a>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       )

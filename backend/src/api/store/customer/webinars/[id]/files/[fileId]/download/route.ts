@@ -93,14 +93,14 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const hasFullAccess = accessTypes.has("bundle") || accessTypes.has("all")
     let canDownloadThisFile = false
 
+    const matType = (file.material_type || "").toLowerCase()
+    const isConferenceMaterial = ["pdf", "slides", "handout", "worksheet", "study_guide", "material"].includes(matType)
+
     if (hasFullAccess || file.purchase_option === "all") {
       canDownloadThisFile = true
-    } else if (accessTypes.has(file.purchase_option)) {
+    } else if (accessTypes.has(file.purchase_option) || accessTypes.has(matType)) {
       canDownloadThisFile = true
-    } else if (
-      (accessTypes.has("recording") || accessTypes.has("transcript") || accessTypes.has("pdf") || accessTypes.has("live")) &&
-      (file.material_type === "slides" || file.material_type === "handout" || file.material_type === "worksheet")
-    ) {
+    } else if (isConferenceMaterial && accessTypes.size > 0) {
       canDownloadThisFile = true
     }
 
