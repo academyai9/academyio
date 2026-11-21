@@ -1,6 +1,6 @@
 import React from "react"
 import Link from "next/link"
-import { Award, ShieldCheck, MapPin } from "lucide-react"
+import { Award, ShieldCheck, MapPin, Mail, Phone } from "lucide-react"
 import { getStoreSocialLinks } from "@lib/data/social-media"
 import { getContactInfo } from "@lib/data/contact"
 import SocialFollowBar from "./SocialFollowBar"
@@ -65,14 +65,34 @@ export default async function Footer({ countryCode = "us" }: { countryCode?: str
               </span>
             </div>
             {contactInfo?.is_active && (
-              <div className="pt-2 text-[11px] text-gray-400 space-y-1 border-t border-slate-800/80">
-                <div className="flex items-center gap-1.5 text-gray-300 font-semibold">
-                  <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
-                  <span>Headquarters:</span>
+              <div className="pt-2 text-[11px] text-gray-400 space-y-2 border-t border-slate-800/80">
+                <div>
+                  <div className="flex items-center gap-1.5 text-gray-300 font-semibold">
+                    <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
+                    <span>Headquarters:</span>
+                  </div>
+                  <p className="leading-relaxed pl-4 text-gray-400">
+                    {contactInfo.street_address}, {contactInfo.city}, {contactInfo.state} {contactInfo.postal_code}
+                  </p>
                 </div>
-                <p className="leading-relaxed pl-4 text-gray-400">
-                  {contactInfo.street_address}, {contactInfo.city}, {contactInfo.state} {contactInfo.postal_code}
-                </p>
+                {contactInfo.support_email && (
+                  <a
+                    href={`mailto:${contactInfo.support_email}`}
+                    className="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors"
+                  >
+                    <Mail className="w-3 h-3 text-blue-400 shrink-0" />
+                    <span>{contactInfo.support_email}</span>
+                  </a>
+                )}
+                {contactInfo.support_phone && (
+                  <a
+                    href={`tel:${contactInfo.support_phone.replace(/[^\d+]/g, "")}`}
+                    className="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors"
+                  >
+                    <Phone className="w-3 h-3 text-blue-400 shrink-0" />
+                    <span>{contactInfo.support_phone}</span>
+                  </a>
+                )}
               </div>
             )}
           </div>

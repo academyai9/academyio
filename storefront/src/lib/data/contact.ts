@@ -40,7 +40,7 @@ export async function getContactInfo(): Promise<ContactInfo> {
       headers: {
         "x-publishable-api-key": PUBLISHABLE_KEY,
       },
-      next: { revalidate: 3600 },
+      cache: "no-store",
     })
 
     if (!res.ok) {

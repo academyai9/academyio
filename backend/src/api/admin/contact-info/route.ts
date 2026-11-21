@@ -57,28 +57,34 @@ export async function ensureContactInfoTable(pgConnection: any) {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+  `)
 
+  await pgConnection.raw(
+    `
     INSERT INTO company_contact_info (
       id, company_name, street_address, city, state, country, postal_code, formatted_address,
       support_email, support_phone, support_hours, broadcast_support_note, map_link, is_active, created_at, updated_at
     ) VALUES (
-      '${DEFAULT_CONTACT_RECORD.id}',
-      '${DEFAULT_CONTACT_RECORD.company_name}',
-      '${DEFAULT_CONTACT_RECORD.street_address}',
-      '${DEFAULT_CONTACT_RECORD.city}',
-      '${DEFAULT_CONTACT_RECORD.state}',
-      '${DEFAULT_CONTACT_RECORD.country}',
-      '${DEFAULT_CONTACT_RECORD.postal_code}',
-      '${DEFAULT_CONTACT_RECORD.formatted_address}',
-      '${DEFAULT_CONTACT_RECORD.support_email}',
-      '${DEFAULT_CONTACT_RECORD.support_phone}',
-      '${DEFAULT_CONTACT_RECORD.support_hours}',
-      '${DEFAULT_CONTACT_RECORD.broadcast_support_note}',
-      '${DEFAULT_CONTACT_RECORD.map_link}',
-      ${DEFAULT_CONTACT_RECORD.is_active},
-      NOW(), NOW()
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
     ) ON CONFLICT (id) DO NOTHING;
-  `)
+    `,
+    [
+      DEFAULT_CONTACT_RECORD.id,
+      DEFAULT_CONTACT_RECORD.company_name,
+      DEFAULT_CONTACT_RECORD.street_address,
+      DEFAULT_CONTACT_RECORD.city,
+      DEFAULT_CONTACT_RECORD.state,
+      DEFAULT_CONTACT_RECORD.country,
+      DEFAULT_CONTACT_RECORD.postal_code,
+      DEFAULT_CONTACT_RECORD.formatted_address,
+      DEFAULT_CONTACT_RECORD.support_email,
+      DEFAULT_CONTACT_RECORD.support_phone,
+      DEFAULT_CONTACT_RECORD.support_hours,
+      DEFAULT_CONTACT_RECORD.broadcast_support_note,
+      DEFAULT_CONTACT_RECORD.map_link,
+      DEFAULT_CONTACT_RECORD.is_active,
+    ]
+  )
 }
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {

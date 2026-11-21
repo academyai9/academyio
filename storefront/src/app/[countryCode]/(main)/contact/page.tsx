@@ -85,9 +85,9 @@ export default async function ContactPage() {
             <div className="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-slate-400">
                 <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Merced County, CA</span>
+                <span>{contact.city}, {contact.state}</span>
               </div>
-              <span className="text-[11px] text-gray-400 dark:text-slate-500 font-mono">ZIP 93620</span>
+              <span className="text-[11px] text-gray-400 dark:text-slate-500 font-mono">ZIP {contact.postal_code}</span>
             </div>
           </div>
 
