@@ -578,3 +578,76 @@ export async function confirmPasswordReset(payload: { email?: string; token: str
     }
   }
 }
+
+export async function changeCustomerPassword(payload: {
+  currentPassword: string
+  newPassword: string
+  email?: string
+}) {
+  const { currentPassword, newPassword, email } = payload
+
+  if (!currentPassword) {
+    return { success: false, error: "Current password is required." }
+  }
+  if (!newPassword || newPassword.length < 8) {
+    return { success: false, error: "New password must be at least 8 characters long." }
+  }
+  if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+    return { success: false, error: "New password must contain at least one letter and one number." }
+  }
+  if (currentPassword === newPassword) {
+    return { success: false, error: "New password must be different from your current password." }
+  }
+
+  const authHeaders = await getAuthHeaders()
+  if (!authHeaders || !("authorization" in authHeaders)) {
+    return { success: false, error: "Your session has expired. Please sign in again." }
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${BACKEND_URL}/store/customer/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": PUBLISHABLE_KEY,
+        ...authHeaders,
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+      cache: "no-store",
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return { success: false, error: data.message || "Failed to change password." }
+    }
+
+    // Refresh HttpOnly session cookie with the new credentials
+    if (email) {
+      try {
+        const freshToken = await sdk.auth.login("customer", "emailpass", {
+          email: email.trim().toLowerCase(),
+          password: newPassword,
+        })
+        if (typeof freshToken === "string" && freshToken) {
+          await setAuthToken(freshToken)
+        }
+      } catch {
+        // Current session remains valid if refresh fails
+      }
+    }
+
+    return {
+      success: true,
+      message: data.message || "Your password has been changed successfully.",
+    }
+  } catch (err: any) {
+    console.error("changeCustomerPassword error:", err?.message || err)
+    return {
+      success: false,
+      error: "Network error occurred while changing password. Please try again.",
+    }
+  }
+}
